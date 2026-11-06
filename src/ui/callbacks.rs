@@ -1627,6 +1627,42 @@ pub(super) fn bind_callbacks(window: &VotecordWindow, adapter: &Rc<RefCell<Adapt
         show_banner_motion(&window, mode);
         adapter.action(&window, Action::SetBannerAnimation(mode));
     });
+    let state = adapter.clone();
+    window.on_translator_enabled_toggled(move |enabled| {
+        let mut adapter = state.borrow_mut();
+        adapter.layout.translator_enabled = enabled;
+        adapter.layout.write(&adapter.root);
+    });
+    let runtime = adapter.borrow().runtime.clone();
+    let weak = window.as_weak();
+    window.on_translate_message(move |text| {
+        let Some(window) = weak.upgrade() else {
+            return;
+        };
+        window.set_translation_open(true);
+        window.set_translation_loading(true);
+        window.set_translation_text("Translating to Portuguese...".into());
+        let task = runtime.spawn_blocking(move || super::translator::translate(&text));
+        let weak = window.as_weak();
+        let weak_on_error = weak.clone();
+        if let Err(error) = slint::spawn_local(async move {
+            let result = task.await;
+            if let Some(window) = weak.upgrade() {
+                window.set_translation_loading(false);
+                let translated = match result {
+                    Ok(Ok(translated)) => translated,
+                    Ok(Err(error)) => format!("Translation failed: {error}"),
+                    Err(error) => format!("Translation task failed: {error}"),
+                };
+                window.set_translation_text(translated.into());
+            }
+        }) {
+            if let Some(window) = weak_on_error.upgrade() {
+                window.set_translation_loading(false);
+                window.set_translation_text(format!("Could not start translation: {error}").into());
+            }
+        }
+    });
     // The channel's composer and the thread beside's pick files alike.
     let pick = |state: Rc<RefCell<Adapter>>, stage: fn(Vec<PathBuf>) -> Action| {
         move || {
