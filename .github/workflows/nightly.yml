@@ -178,7 +178,8 @@ jobs:
           cmp "dist/linux/Votecord-$VERSION-source.zip" "dist/windows/Votecord-$VERSION-source.zip"
           mkdir release
           mv dist/linux/Votecord-* dist/linux/votecord-*.pkg.tar.zst release/
-          mv dist/windows/Votecord-*-windows-x64* release/\n          mv dist/windows-installer/Votecord-*-windows-x64-setup.exe release/
+          mv dist/windows/Votecord-*-windows-x64* release/
+          mv dist/windows-installer/Votecord-*-windows-x64-setup.exe release/
           (cd release && sha256sum Votecord-* votecord-*.pkg.tar.zst > SHA256SUMS.txt)
           # The newest nightly, or before the first one the latest release.
           previous=$(gh release list --exclude-drafts --limit 100 --json tagName \
