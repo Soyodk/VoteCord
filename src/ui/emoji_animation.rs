@@ -14,6 +14,7 @@ use super::*;
 /// delays are read with its pixels, so this only covers a picture that lost
 /// them.
 const DEFAULT_DELAY: u32 = 100;
+const MAX_FRAMES: usize = 48;
 
 /// One animated emoji's decoded frames, ready for the registry.
 ///
@@ -163,7 +164,7 @@ struct Kept {
 }
 
 impl Cache {
-    pub(super) const BUDGET: usize = 6 * 1024 * 1024;
+    pub(super) const BUDGET: usize = 3 * 1024 * 1024;
 
     pub(super) fn new() -> Self {
         Self {
@@ -204,19 +205,19 @@ impl Cache {
         Some(kept.frames.clone())
     }
 
-    /// Pins what a refresh just showed, so eviction never takes it.
+    /// Pins what a refresh just showed, so eviction prefers to leave it alone.
     ///
-    /// Every refresh pins the whole visible set, so this replaces the pinned
-    /// set rather than adding to it. A pinned set larger than the budget
-    /// stays: an emoji dropping back to its still while it is on screen is
-    /// worse than the memory, and it is what a budget alone would do.
+    /// Every refresh pins the whole visible set, replacing the previous one.
+    /// If visible frames alone exceed the hard budget, the oldest pinned one
+    /// falls back to its still image rather than letting memory grow without limit.
     pub(super) fn pin<'a>(&mut self, keys: impl IntoIterator<Item = &'a str>) {
         self.pinned.clear();
         self.pinned.extend(keys.into_iter().map(str::to_owned));
+        self.stills.retain(|key| self.pinned.contains(key));
     }
 
-    /// Drops the frames shown longest ago until the budget is met again,
-    /// never one pinned.
+    /// Drops the least-recently-shown frames until the hard budget is met;
+    /// pinned frames are a last resort.
     pub(super) fn evict(&mut self) {
         self.evict_to(Self::BUDGET);
     }
@@ -225,12 +226,14 @@ impl Cache {
     /// megabytes of pictures to make eviction happen.
     fn evict_to(&mut self, budget: usize) {
         while self.bytes > budget {
-            let Some(key) = self.longest_unshown() else {
-                // Only pinned emoji are left, and they are never taken.
+            let Some(key) = self.longest_unshown().or_else(|| self.longest_any()) else {
                 return;
             };
             if let Some(taken) = self.entries.remove(&key) {
                 self.bytes -= taken.frames.bytes();
+                if self.pinned.contains(&key) {
+                    self.stills.insert(key.clone());
+                }
                 i_slint_core::votecord_emoji::remove(&key);
             }
         }
@@ -241,6 +244,14 @@ impl Cache {
         self.entries
             .iter()
             .filter(|(key, _)| !self.pinned.contains(*key))
+            .min_by_key(|(_, kept)| kept.shown)
+            .map(|(key, _)| key.clone())
+    }
+
+    /// The oldest key of all, used only when visible frames alone exceed budget.
+    fn longest_any(&self) -> Option<String> {
+        self.entries
+            .iter()
             .min_by_key(|(_, kept)| kept.shown)
             .map(|(key, _)| key.clone())
     }
@@ -301,7 +312,7 @@ pub(super) struct Animations {
     done: std::sync::mpsc::Sender<Decoded>,
     decoded: std::sync::mpsc::Receiver<Decoded>,
     /// The side frames decode at: 48px as jumbo text draws them, for the
-    /// screen's scale, and never past 96.
+    /// screen's scale, and never past 64.
     side: u32,
     /// Moves the clock while anything plays; stopped otherwise, so a window
     /// with no animated emoji on screen has no wakeups.
@@ -326,7 +337,7 @@ impl Animations {
     }
 
     /// Names the animated emoji a refresh shows: those kept are pinned so
-    /// eviction leaves them, and those missing are wanted for decoding.
+    /// eviction prefers them, and those missing are wanted for decoding.
     pub(super) fn show(
         &mut self,
         shown: impl IntoIterator<Item = (String, Option<char>, String)>,
@@ -467,7 +478,7 @@ impl Animations {
         self.side = frame_side(window.window().scale_factor());
         let waiting = !self.decoding.is_empty()
             || self.queue.len() > 0
-            || !i_slint_core::votecord_emoji::is_empty();
+            || (playing && !i_slint_core::votecord_emoji::is_empty());
         if !waiting {
             self.timer.stop();
             self.interval = 0;
@@ -507,22 +518,22 @@ impl Animations {
 }
 
 /// The side frames decode at: 48px, as jumbo text draws an emoji, for the
-/// screen's scale, and never past the 96 that keeps the cache's budget useful.
+/// screen's scale, and never past 64 to bound decoded pixel memory.
 fn frame_side(scale: f32) -> u32 {
-    (48.0 * scale.max(1.0)).round().clamp(48.0, 96.0) as u32
+    (48.0 * scale.max(1.0)).round().clamp(48.0, 64.0) as u32
 }
 
-/// An animation's frames at `side`, and how long each shows, decoded whole and
-/// scaled at once: the picture's own frames are as large as its file.
+/// Up to 48 frames of an animation at `side`, scaled before they enter the cache.
 fn decode(picture: &Picture, side: u32) -> (Vec<Vec<u8>>, Vec<u32>) {
     use image::imageops;
     let delays = picture
         .animation
         .as_ref()
-        .map(|animation| animation.delays.clone())
+        .map(|animation| animation.delays.iter().copied().take(MAX_FRAMES).collect())
         .unwrap_or_default();
     let frames = picture
         .frames()
+        .take(MAX_FRAMES)
         .filter_map(|frame| {
             let decoded = image::RgbaImage::from_raw(picture.width, picture.height, frame)?;
             let scaled = imageops::resize(
@@ -657,20 +668,27 @@ mod tests {
     }
 
     #[test]
-    fn a_pinned_emoji_stays_even_over_the_budget() {
+    fn a_pinned_emoji_is_evicted_when_the_hard_budget_requires_it() {
         let mut cache = Cache::new();
         cache.insert("a".to_owned(), Some('a'), small(1));
         cache.insert("b".to_owned(), Some('b'), small(1));
         cache.pin(["b"]);
         cache.evict_to(0);
-        assert!(cache.contains("b"), "on screen, so it keeps its frames");
+        assert!(!cache.contains("b"), "the hard budget also applies to visible emoji");
+        assert!(cache.is_still("b"), "do not decode it again every refresh");
         assert!(!cache.contains("a"));
-        assert_eq!(cache.bytes(), 16, "over the budget, and pinned");
-        // A refresh pins what it showed, so the pinned set replaces the last.
-        cache.pin(["a"]);
-        cache.evict_to(0);
-        assert!(!cache.contains("b"));
         assert_eq!(cache.bytes(), 0);
+        // Once it leaves the visible set, its temporary still marker is dropped.
+        cache.pin(["a"]);
+        assert!(!cache.is_still("b"));
+    }
+
+    #[test]
+    fn animation_frames_are_capped_for_high_dpi_screens() {
+        assert_eq!(frame_side(1.0), 48);
+        assert_eq!(frame_side(2.0), 64);
+        assert_eq!(frame_side(4.0), 64);
+        assert_eq!(MAX_FRAMES, 48);
     }
 
     #[test]
