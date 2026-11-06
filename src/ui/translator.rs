@@ -21,10 +21,10 @@ pub(super) fn translate(text: &str) -> Result<String, String> {
     while !remaining.is_empty() {
         let end = chunk_end(remaining);
         let chunk = &remaining[..end];
-        let query = url::form_urlencoded::Serializer::new(String::new())
-            .append_pair("q", chunk)
-            .append_pair("langpair", "autodetect|pt-BR")
-            .finish();
+        let mut query = url::form_urlencoded::Serializer::new(String::new());
+        query.append_pair("q", chunk);
+        query.append_pair("langpair", "autodetect|pt-BR");
+        let query = query.finish();
         let address = format!("https://api.mymemory.translated.net/get?{query}");
         let response = agent
             .get(&address)
