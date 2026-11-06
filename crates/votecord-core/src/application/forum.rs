@@ -8,7 +8,7 @@
 //! pages and a search's results bring their own. All of it is kept only
 //! while the forum shows.
 
-use std::collections::HashMap;
+use std::{collections::HashMap, hash::{Hash, Hasher}};
 
 use super::*;
 use crate::chat::{ForumTag, ListedThread, PostStarter, PostStarters};
@@ -87,6 +87,32 @@ impl ForumView {
     /// have asked for their first messages, or older posts still to load.
     pub fn wants_more(&self, cards: usize) -> bool {
         self.list.search.is_none() && (self.list.more || cards > self.shown)
+    }
+
+    /// A cheap-to-store fingerprint of everything that changes the forum list.
+    /// The UI uses it to avoid cloning and sorting all posts on every refresh.
+    pub fn revision(&self) -> u64 {
+        let mut hasher = std::collections::hash_map::DefaultHasher::new();
+        self.list.room.hash(&mut hasher);
+        self.list.archived.hash(&mut hasher);
+        self.list.more.hash(&mut hasher);
+        self.list.next.hash(&mut hasher);
+        self.list.loading.hash(&mut hasher);
+        self.list.error.hash(&mut hasher);
+        self.list
+            .search
+            .as_ref()
+            .map(|search| (&search.query, &search.found))
+            .hash(&mut hasher);
+        for (room, starter) in &self.starters {
+            room.hash(&mut hasher);
+            starter.hash(&mut hasher);
+        }
+        self.asking.hash(&mut hasher);
+        self.stalled.hash(&mut hasher);
+        self.shown.hash(&mut hasher);
+        self.read.hash(&mut hasher);
+        hasher.finish()
     }
 }
 
