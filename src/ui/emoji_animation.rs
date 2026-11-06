@@ -231,6 +231,7 @@ impl Cache {
             };
             if let Some(taken) = self.entries.remove(&key) {
                 self.bytes -= taken.frames.bytes();
+                i_slint_core::votecord_emoji::remove(&key);
             }
         }
     }
@@ -267,6 +268,7 @@ impl Cache {
     /// until they do is spared asking again.
     pub(super) fn still(&mut self, key: &str) {
         self.stills.insert(key.to_owned());
+        i_slint_core::votecord_emoji::remove(key);
     }
 
     /// Whether an emoji's frames are known not to decode. A still costs no
@@ -696,6 +698,43 @@ mod tests {
         // Frames that arrive on a later try are what it draws from then on.
         cache.insert("party:1".to_owned(), Some('a'), small(1));
         assert!(!cache.is_still("party:1"));
+    }
+
+    #[test]
+    fn eviction_unregisters_animation_frames_from_the_slint_registry() {
+        use i_slint_core::votecord_emoji as registry;
+        let (key, glyph) = ("evicted:1", '\u{10ffdf}');
+        let frames = small(2);
+        let animation = Rc::new(registry::Animation::new(
+            frames.images().to_vec(),
+            frames.delays(),
+        ));
+        registry::insert(key, Some(glyph), animation);
+        assert!(registry::frame_of_key(key).is_some());
+        assert!(registry::frame_of_glyph(glyph).is_some());
+
+        let mut cache = Cache::new();
+        cache.insert(key.to_owned(), Some(glyph), frames);
+        cache.evict_to(0);
+
+        assert!(!cache.contains(key));
+        assert!(registry::frame_of_key(key).is_none());
+        assert!(registry::frame_of_glyph(glyph).is_none());
+    }
+
+    #[test]
+    fn a_failed_animation_removes_any_old_registered_frames() {
+        use i_slint_core::votecord_emoji as registry;
+        let (key, glyph) = ("still:1", '\u{10ffde}');
+        registry::insert(
+            key,
+            Some(glyph),
+            Rc::new(registry::Animation::new(vec![slint::Image::default()], &[40])),
+        );
+        let mut cache = Cache::new();
+        cache.still(key);
+        assert!(registry::frame_of_key(key).is_none());
+        assert!(registry::frame_of_glyph(glyph).is_none());
     }
 
     #[test]
