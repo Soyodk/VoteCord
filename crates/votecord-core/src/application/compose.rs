@@ -361,19 +361,22 @@ impl Application {
             version: command.version.clone(),
             name: command.name.clone(),
             description: command.description.clone(),
-            options: chat::slash_steps(command, &chat::quoted_words(&draft[1 + word.len()..])).filled,
+            options: chat::slash_steps(command, &chat::quoted_words(&draft[1 + word.len()..]))
+                .filled,
         };
         self.state.drafts.remove(room);
         self.state.mention_query = None;
-        let mut effects = if self.state.selected.as_ref() == Some(room) {
+        let mut effects = if self.state.selected.as_deref() == Some(room) {
             self.jump_to_present()
         } else {
             vec![]
         };
-        effects.push(Effect::Backend(Command::Discord(DiscordCommand::SendSlash {
-            room: room.to_owned(),
-            command: sent,
-        })));
+        effects.push(Effect::Backend(Command::Discord(
+            DiscordCommand::SendSlash {
+                room: room.to_owned(),
+                command: sent,
+            },
+        )));
         Some(effects)
     }
 

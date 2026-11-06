@@ -14,6 +14,7 @@ use crate::chat::{
     EventPreview, GiftPreview, InvitePreview, JoinedServer, MemberChange, Muting,
     NotificationChange, NotifyLevel, OAuthGuild, OAuthPreview, RelationshipChange,
 };
+use serde_json::Value;
 
 /// Carries out a command about the account, or gives back any other.
 pub(super) fn command(
@@ -1922,6 +1923,10 @@ fn slash_options(options: &[Value]) -> Vec<crate::chat::SlashOption> {
                     .flatten()
                     .filter_map(|choice| Some(choice["name"].as_str()?.to_owned()))
                     .collect(),
+                options: option["options"]
+                    .as_array()
+                    .map(|options| slash_options(options))
+                    .unwrap_or_default(),
             })
         })
         .collect()
@@ -1929,7 +1934,9 @@ fn slash_options(options: &[Value]) -> Vec<crate::chat::SlashOption> {
 
 /// A sent command in the Discord crate's wire shape, borrowed from the
 /// core's own.
-fn sending_command(command: &crate::chat::SentCommand) -> votecord_discord::api::SendingCommand<'_> {
+fn sending_command(
+    command: &crate::chat::SentCommand,
+) -> votecord_discord::api::SendingCommand<'_> {
     votecord_discord::api::SendingCommand {
         id: &command.id,
         application_id: &command.application_id,
