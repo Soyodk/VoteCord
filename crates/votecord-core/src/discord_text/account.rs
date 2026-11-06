@@ -171,13 +171,21 @@ pub(super) fn command(
                     ]
                 };
                 let mut commands = Vec::new();
+                let mut errors = Vec::new();
                 for path in paths {
                     match discord.command_index(&path).await {
                         Ok(index) => commands.extend(slash_commands(&index)),
                         Err(error) => {
-                            tracing::debug!(%error, "could not fetch a command index");
+                            tracing::warn!(%error, path = %path, "could not fetch a slash command index");
+                            errors.push(error.to_string());
                         }
                     }
+                }
+                if commands.is_empty() && !errors.is_empty() {
+                    let _ = events.send(Event::Error(format!(
+                        "Could not load Discord slash commands: {}",
+                        errors.join("; ")
+                    )));
                 }
                 let _ = events.send(Event::SlashCommands {
                     room,
