@@ -2083,6 +2083,48 @@ pub(super) fn bind_callbacks(window: &VotecordWindow, adapter: &Rc<RefCell<Adapt
     });
     let state = adapter.clone();
     let weak = window.as_weak();
+    window.on_command_browser_refresh(move || {
+        let Some(window) = weak.upgrade() else { return };
+        let mut adapter = state.borrow_mut();
+        // The first look asks for the room's commands, as a draft's "/" does;
+        // they arrive as an event, and the refresh that brings them rebuilds
+        // the tab, whose note says they're loading until then.
+        if let Some(room) = adapter.app.state.selected.clone()
+            && votecord_core::network::Network::of(&room)
+                == votecord_core::network::Network::Discord
+            && !adapter.app.state.slash_commands_asked.contains(&room)
+        {
+            adapter.action(&window, Action::SlashCommands(room));
+        }
+        adapter.show_command_browser(&window);
+    });
+    let state = adapter.clone();
+    let weak = window.as_weak();
+    window.on_command_browser_chosen(move |index| {
+        let Some(window) = weak.upgrade() else { return };
+        let mut adapter = state.borrow_mut();
+        let Some(name) = adapter.command_browser_names.get(index as usize).cloned() else {
+            return;
+        };
+        let draft = adapter.app.state.draft().to_owned();
+        // The command goes in where the composer's word is: a draft writing a
+        // command replaces it, keeping what follows; any other draft starts
+        // with the command, as Discord's picker fills it.
+        let text = if draft.starts_with('/') {
+            match draft.find(char::is_whitespace) {
+                Some(at) => format!("/{name}{}", &draft[at..]),
+                None => format!("/{name} "),
+            }
+        } else {
+            format!("/{name} ")
+        };
+        let caret = text.len();
+        adapter.action(&window, Action::SetDraft(text));
+        window.invoke_place_composer_caret(i32::try_from(caret).unwrap_or(i32::MAX));
+        window.invoke_focus_composer();
+    });
+    let state = adapter.clone();
+    let weak = window.as_weak();
     window.on_mention_dismissed(move || {
         let Some(window) = weak.upgrade() else { return };
         let mut adapter = state.borrow_mut();

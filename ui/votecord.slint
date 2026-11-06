@@ -27,7 +27,7 @@ import { GifPicker, GifTile, PickerTab } from "gifs.slint";
 import { ActionButton, IconButton, PingToggle, DeviceToggle, Avatar, TextField, MessagesSkeleton, ContextMenu, MenuItem, MenuRow, DeviceMenu, HeaderToggle, Banner, StatusText } from "controls.slint";
 import { PersonRow, CallLink, CallLinkCard, LinkTouch, SignalIcon, VoiceDock, StreamPip, CallInvite, JoinVoice, ParticipantGrid, CallControls, IncomingCall, SwitchDialog, InputLevel, ShareMenu, ShareScreen, VolumeMenu, Soundboard, SoundRow } from "voice.slint";
 import { ServerRow, RoomRow, StatusDot, ServerRail, ServerHeader, RoomList } from "rail.slint";
-import { StagedFile, StagedTile, Composer, MentionRow, MentionList, EmojiSuggestions, CommandRow, CommandList, SlashHintRow, SlashHints, RequestBar } from "composer.slint";
+import { StagedFile, StagedTile, Composer, MentionRow, MentionList, EmojiSuggestions, CommandRow, CommandList, SlashHintRow, SlashHints, RequestBar, CommandBrowser } from "composer.slint";
 import { EmojiCell, EmojiRow, EmojiSection, EmojiCard, EmojiCardView, MessageRow, ReactionToggle, EmojiButton, EmojiPicker, MessageMenu, MessageGallery, MessageStickers, FileCard, MessageContent, EmbedView, BotTag, NoConversation, ConversationStart, HistoryEdge, UnreadBar, PresentBar, ImageViewer, VideoViewer, VideoPlayer, Polls } from "messages.slint";
 import { SettingsRow, SettingsScreen, AccountSettings, AppearanceSettings, ThemeCard, ThemeColour, VoiceSettings, MessageSettings, NotificationSettings, SoundSettings, AdvancedSettings, DiscordLinkSettings, DiscordSettings, NitroSettings, BlockedRow, GameActivitySettings, GameExecutable } from "settings.slint";
 import { MemberRow, ProfileData, ProfileServerRow, MemberPanel, ProfileCard, ServerCard, RoleCard } from "people.slint";
@@ -574,6 +574,18 @@ export component VotecordWindow inherits Window {
     /// the pictures of the custom emoji in sight as they come in.
     callback emoji-scrolled-to(length, length);
     in-out property <string> emoji-query;
+    /// The commands tab's rows: the room's slash commands matching its search
+    /// and the application chosen, with the applications to choose from, and
+    /// the note that says why the list is empty, when it is.
+    in property <[CommandRow]> command-browser-rows;
+    in property <[string]> command-apps;
+    in-out property <string> command-browser-query;
+    in-out property <string> command-browser-app;
+    in property <string> command-browser-note;
+    /// The tab shows, so the application rebuilds its rows as its commands arrive.
+    in property <bool> command-browser-open;
+    callback command-browser-refresh;
+    callback command-browser-chosen(int);
     /// The forward dialog, open while Votecord forwards a message.
     in property <bool> forward-open;
     /// Messages here that can be forwarded offer it: Matrix forwards only
@@ -1645,11 +1657,11 @@ export component VotecordWindow inherits Window {
         root.anchor-pointer = pointer;
     }
     // The picker's width, which its left edge drags wider: 498px unless
-    // dragged. The GIFs and the emoji share it, as they share the window: its
-    // right edge stays on the control it opened from, and its height stays, as
-    // Discord's. It grows only, and stops 8px right of the 72px server rail, or
-    // 8px from the window's own edge if that comes first. Both grids take
-    // their columns from the width they show at.
+    // dragged. The GIFs, the emoji and the commands share it, as they share
+    // the window: its right edge stays on the control it opened from, and its
+    // height stays, as Discord's. It grows only, and stops 8px right of the
+    // 72px server rail, or 8px from the window's own edge if that comes first.
+    // Both grids take their columns from the width they show at.
     in-out property <length> picker-width: 498px;
     // The width the picker may take, from the emoji button above the composer to
     // the window's edge: it grows only, and stops 8px right of the 72px server
@@ -1671,7 +1683,7 @@ export component VotecordWindow inherits Window {
     /// The drag let go at this width, which the next start shows again.
     callback picker-width-chosen(length);
     /// The width the emoji grid shows at: the picker above the composer's,
-    /// which both tabs share, or the width the emoji popup opens at. The grid
+    /// which its tabs share, or the width the emoji popup opens at. The grid
     /// fits its columns to it.
     in-out property <length> emoji-panel-width: 408px;
     /// The emoji grid's columns no longer fit the width it shows at; whoever
@@ -1852,7 +1864,8 @@ export component VotecordWindow inherits Window {
         emoji-picker.close();
         expressions.close();
     }
-    // The picker above the composer: GIFs, and the emoji. Its GIFs let go of
+    // The picker above the composer: GIFs, the emoji, and the commands. Its
+    // GIFs let go of
     // their pictures when it closes or shows the emoji.
     property <int> expression-tab;
     function open-expressions(tab: int) {
@@ -1860,26 +1873,39 @@ export component VotecordWindow inherits Window {
         root.emoji-query = "";
         root.emoji-hover = { glyph: "", name: "" };
         root.expression-tab = tab;
+        root.command-browser-open = tab == 2;
+        // A search starts over; the application chosen stays.
+        root.command-browser-query = "";
         root.emoji-panel-width = root.picker-shown;
         root.emoji-search("");
         if tab == 0 { root.open-gifs(); }
+        else if tab == 2 { root.command-browser-refresh(); }
         expressions.show();
     }
     function show-expression-tab(tab: int) {
         if tab == root.expression-tab { return; }
         root.expression-tab = tab;
+        root.command-browser-open = tab == 2;
         // The emoji's columns follow the width the picker was dragged to while
         // the GIFs showed.
         if tab == 0 { root.open-gifs(); } else {
             root.close-gifs();
             root.emoji-panel-width = root.picker-shown;
-            root.emoji-reflow();
+            if tab == 1 {
+                // The grid is built again rather than only laid out: closing
+                // the picker let its rows go, and a reflow skips what it last
+                // built, which would show nothing.
+                root.emoji-search(root.emoji-query);
+            } else {
+                root.command-browser-refresh();
+            }
         }
     }
     property <bool> expressions-open: expressions.is-open;
     changed expressions-open => {
         if !root.expressions-open {
             root.close-gifs();
+            root.command-browser-open = false;
             if !root.picker-open { root.emoji-picker-closed(); }
             root.focus-composer();
             root.react-item = "";
@@ -1903,8 +1929,8 @@ export component VotecordWindow inherits Window {
             width: parent.width - panel.width; x: 0px;
             clicked => { expressions.close(); }
         }
-        // The GIFs and the emoji share the window, so both show at the width
-        // its left edge was dragged to, and each grid fits its columns to that.
+        // The picker's tabs share the window, so all show at the width its left
+        // edge was dragged to, and each grid fits its columns to that.
         panel := Rectangle {
             width: root.picker-shown;
             x: parent.width - self.width;
@@ -1918,6 +1944,7 @@ export component VotecordWindow inherits Window {
                     padding-left: 16px; spacing: 8px; alignment: start;
                     PickerTab { text: "GIFs"; selected: root.expression-tab == 0; clicked => { root.show-expression-tab(0); } }
                     PickerTab { text: "Emoji"; selected: root.expression-tab == 1; clicked => { root.show-expression-tab(1); } }
+                    PickerTab { text: "Commands"; selected: root.expression-tab == 2; clicked => { root.show-expression-tab(2); } }
                 }
                 if root.expression-tab == 0: GifPicker {
                     view: root.gif-view; query <=> root.gif-query; tiles: root.gif-tiles;
@@ -1941,6 +1968,18 @@ export component VotecordWindow inherits Window {
                     unlock-nitro => { root.unlock-nitro(); }
                     close-picker => { expressions.close(); }
                     scrolled-to(top, height) => { root.emoji-scrolled-to(top, height); }
+                }
+                if root.expression-tab == 2: CommandBrowser {
+                    commands: root.command-browser-rows; apps: root.command-apps;
+                    query <=> root.command-browser-query; app <=> root.command-browser-app;
+                    note: root.command-browser-note;
+                    search(text) => { root.command-browser-refresh(); }
+                    choose-app(name) => {
+                        root.command-browser-app = name;
+                        root.command-browser-refresh();
+                    }
+                    chosen(index) => { root.command-browser-chosen(index); expressions.close(); }
+                    close => { expressions.close(); }
                 }
             }
             // The picker's left edge drags it wider, as Discord's: the right

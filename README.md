@@ -62,14 +62,19 @@ subcommand comes first among the words, and whatever runs past the last
 string option joins it, so long values need no quotes. Enter sends it as
 Discord's own client does, and the reply arrives with the room's messages.
 
+The picker's Commands tab (beside GIFs and Emoji) lists the room's
+commands to browse rather than type: a search keeps the ones whose name or
+description matches, and a chip per app — with All beside them — keeps one
+app's commands showing. Choosing one fills the composer with it.
+
 ### Votecord purple
 
 Where Yapfast marked selection, primary actions and mentions of you in
 marigold, Votecord marks them in purple (`#8b5cf6`), with a new mark of
-its own: a speech bubble with a ballot check. The Vote theme keeps
-Yapfast's layered graphite surfaces; all the other built-in themes —
-Bonfire, Catppuccin, Dracula, Nord and the rest — are unchanged, and the
-theme editor still makes your own.
+its own: a ballot tile holding a speech bubble that casts its check. The
+Vote theme keeps Yapfast's layered graphite surfaces; all the other
+built-in themes — Bonfire, Catppuccin, Dracula, Nord and the rest — are
+unchanged, and the theme editor still makes your own.
 
 ## Measured against Discord
 
@@ -111,8 +116,9 @@ on how many servers and DMs you have.
 - Media channels and Activities.
 - Making and changing server folders.
 - A server's onboarding form for new members.
-- Slash command autocomplete and per-option pickers (user/channel lists);
-  the options fill from the words you type, as above.
+- Slash commands' per-option pickers (user/channel lists); the options fill
+  from the words you type, as above, and the picker's Commands tab browses
+  the room's commands.
 
 ## Will Discord ban me?
 

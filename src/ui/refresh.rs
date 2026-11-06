@@ -324,6 +324,10 @@ impl Adapter {
         self.show_emoji_card(window);
         self.show_emoji_animations(window);
         self.show_composer(window);
+        // The commands tab rebuilds as its room's commands arrive.
+        if window.get_command_browser_open() {
+            self.show_command_browser(window);
+        }
         self.show_messages(window, &changes);
         self.show_aside(window);
         self.show_voice(window);
@@ -3133,6 +3137,83 @@ impl Adapter {
             (Vec::new(), 0)
         };
         (rows, suggestions, hints, hint_index)
+    }
+
+    /// The commands tab's rows: the room's slash commands whose name or
+    /// description holds the search, of the application it keeps to, with the
+    /// applications its chips offer. Built again when what it shows changes,
+    /// and the note says why the list is empty.
+    pub(super) fn show_command_browser(&mut self, window: &VotecordWindow) {
+        let query = window.get_command_browser_query().to_lowercase();
+        let app = window.get_command_browser_app().to_string();
+        let room = self.app.state.selected.clone();
+        let commands = room
+            .as_deref()
+            .and_then(|room| self.app.state.slash_commands.get(room))
+            .cloned();
+        let asked = room
+            .as_deref()
+            .is_some_and(|room| self.app.state.slash_commands_asked.contains(room));
+        // What the tab last built its rows from, so a refresh of the window
+        // that changed none of it rebuilds nothing.
+        let version = commands
+            .as_ref()
+            .map(|commands| std::sync::Arc::as_ptr(commands) as usize)
+            .unwrap_or(0);
+        let shown = (
+            room.clone().unwrap_or_default(),
+            version,
+            query.clone(),
+            app.clone(),
+        );
+        if self.command_browser_shown.as_ref() == Some(&shown) {
+            return;
+        }
+        let commands = commands.as_deref().unwrap_or(&[]);
+        let mut apps: Vec<SharedString> = Vec::new();
+        for command in commands {
+            if !apps.iter().any(|kept| kept.as_str() == command.app_name) {
+                apps.push(command.app_name.as_str().into());
+            }
+        }
+        let rows: Vec<CommandRow> = commands
+            .iter()
+            .filter(|command| app.is_empty() || command.app_name == app)
+            .filter(|command| {
+                query.is_empty()
+                    || command.name.to_lowercase().contains(&query)
+                    || command.description.to_lowercase().contains(&query)
+            })
+            .map(|command| CommandRow {
+                name: command.name.as_str().into(),
+                description: command.description.as_str().into(),
+                app: command.app_name.as_str().into(),
+            })
+            .collect();
+        self.command_browser_names = rows
+            .iter()
+            .map(|row| row.name.trim_start_matches('/').to_owned())
+            .collect();
+        let discord = room.as_deref().is_some_and(|room| {
+            votecord_core::network::Network::of(room) == votecord_core::network::Network::Discord
+        });
+        let note = if room.is_none() {
+            "Open a room to see its commands.".to_string()
+        } else if !discord {
+            "Commands are a Discord feature; this room isn't on it.".to_string()
+        } else if !asked && commands.is_empty() {
+            "Loading this room's commands…".to_string()
+        } else if commands.is_empty() {
+            "No commands are available here.".to_string()
+        } else if rows.is_empty() {
+            format!("No command matches \"{query}\".")
+        } else {
+            String::new()
+        };
+        self.command_browser_shown = Some(shown);
+        update_model(&self.models.command_apps, apps);
+        update_model(&self.models.command_browser, rows);
+        window.set_command_browser_note(note.into());
     }
 
     /// The messages, built again only where they changed, and where the list

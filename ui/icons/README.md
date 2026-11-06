@@ -41,8 +41,8 @@ discord.svg is Discord's logo from Simple Icons 16.34.0
 (https://simpleicons.org/, CC0 1.0), filled white. It marks Discord servers
 and DMs, and Discord's brand guidelines apply to it rather than the ISC licence.
 
-logo.svg is the app's own mark: a speech bubble with a ballot check cut
-out of it, which Votecord's purple fills wherever it shows.
+logo.svg is the app's own mark: a ballot tile with a speech bubble casting
+its check cut out of it, which Votecord's purple fills wherever it shows.
 
 sparkles.svg is Sparkles from Lucide (https://lucide.dev, ISC licence),
 at 1.7 stroke; it marks the Nitro section of Settings.

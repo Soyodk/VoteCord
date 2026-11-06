@@ -1,5 +1,6 @@
 import { Theme, Middle } from "theme.slint";
-import { ActionButton, IconButton, Avatar, SpoilerCover, ContextMenu, MenuRow } from "controls.slint";
+import { ListView } from "scrollview.slint";
+import { ActionButton, IconButton, Avatar, SpoilerCover, ContextMenu, MenuRow, TextField } from "controls.slint";
 import { EmojiCell, EmojiFace } from "messages.slint";
 
 /// A file waiting to go with the next message. A spoiler's picture is blurred.
@@ -346,6 +347,117 @@ export component CommandList inherits SuggestionFrame {
                 Text {
                     text: command.app; vertical-alignment: center; overflow: elide;
                     color: Theme.faint; font-size: 12px;
+                }
+            }
+        }
+    }
+}
+
+// A chip of the commands tab that keeps one application's commands showing, or
+// every application's, as "All".
+component CommandAppChip inherits Rectangle {
+    in property <string> text;
+    in property <bool> selected;
+    callback clicked;
+    width: label.preferred-width + 20px; height: 26px; border-radius: 13px;
+    background: root.selected ? Theme.active : touch.has-hover ? Theme.hover : Theme.overlay.with-alpha(0.07);
+    accessible-role: button;
+    accessible-label: root.text == "All" ? "Show every application's commands" : "Show only " + root.text + "'s commands";
+    accessible-action-default => { root.clicked(); }
+    label := Text {
+        text: root.text; font-size: 12px; font-weight: 600;
+        color: root.selected || touch.has-hover ? Theme.text : Theme.secondary;
+    }
+    touch := TouchArea { mouse-cursor: MouseCursor.pointer; clicked => { root.clicked(); } }
+}
+
+// The picker's commands tab: a search, chips that keep one application's
+// commands, and the room's slash commands matching both, each named by the
+// application that offers it. One chosen fills the composer with it; Escape
+// closes the picker.
+export component CommandBrowser inherits Rectangle {
+    /// The room's commands matching the search and the application chosen.
+    in property <[CommandRow]> commands;
+    /// The applications offering them, beside "All", which keeps every one's.
+    in property <[string]> apps;
+    in-out property <string> query;
+    in-out property <string> app;
+    /// Why the list is empty, when it is.
+    in property <string> note;
+    callback search(string);
+    callback choose-app(string);
+    callback chosen(int);
+    callback close;
+    FocusScope {
+        key-pressed(event) => {
+            if event.text == Key.Escape { root.close(); return accept; }
+            return reject;
+        }
+        VerticalLayout {
+            spacing: 0px;
+            HorizontalLayout {
+                padding: 12px; padding-bottom: 8px;
+                TextField {
+                    init => { self.focus-input(); }
+                    min-height: 34px; text-size: 15px; pad: 10px; fill: Theme.sunken;
+                    placeholder: "Find a command"; label: "Find a command"; text <=> root.query;
+                    edited(text) => { root.search(text); }
+                }
+            }
+            HorizontalLayout {
+                padding-left: 12px; padding-right: 12px; padding-bottom: 8px; spacing: 6px; alignment: start;
+                CommandAppChip {
+                    text: "All"; selected: root.app == "";
+                    clicked => { root.choose-app(""); }
+                }
+                for name in root.apps: CommandAppChip {
+                    text: name;
+                    selected: root.app == name;
+                    clicked => { root.choose-app(name); }
+                }
+            }
+            grid := ListView {
+                vertical-stretch: 1;
+                for command[index] in root.commands: Rectangle {
+                    height: 40px; border-radius: 6px;
+                    background: pick.has-hover ? Theme.hover : transparent;
+                    accessible-role: button;
+                    accessible-label: "Use /" + command.name + ", by " + command.app;
+                    accessible-action-default => { root.chosen(index); }
+                    pick := TouchArea {
+                        mouse-cursor: MouseCursor.pointer;
+                        clicked => { root.chosen(index); }
+                    }
+                    HorizontalLayout {
+                        padding-left: 10px; padding-right: 12px; spacing: 10px;
+                        Rectangle {
+                            width: 26px; height: 26px; border-radius: 13px;
+                            background: Theme.accent-soft;
+                            Text {
+                                text: "/"; color: Theme.accent; font-size: 15px; font-weight: 700;
+                                horizontal-alignment: center; vertical-alignment: center;
+                            }
+                        }
+                        Text {
+                            text: "/" + command.name; vertical-alignment: center; overflow: elide;
+                            color: Theme.text; font-size: 14px; font-weight: 600;
+                        }
+                        Text {
+                            text: command.description; vertical-alignment: center; overflow: elide; horizontal-stretch: 1;
+                            color: Theme.muted; font-size: 13px;
+                        }
+                        Text {
+                            text: command.app; vertical-alignment: center; overflow: elide;
+                            color: Theme.faint; font-size: 12px;
+                        }
+                    }
+                }
+            }
+            if root.commands.length == 0 && root.note != "": HorizontalLayout {
+                padding: 16px; vertical-stretch: 1;
+                Text {
+                    text: root.note; color: Theme.muted; font-size: 14px; wrap: word-wrap;
+                    horizontal-alignment: center; vertical-alignment: center;
                 }
             }
         }

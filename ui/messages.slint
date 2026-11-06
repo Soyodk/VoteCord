@@ -37,7 +37,13 @@ export component EmojiFace inherits Rectangle {
         source: root.shown-picture; width: root.side; height: root.side; image-fit: contain;
         x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2;
     }
-    if root.shown-picture.width == 0 && root.emoji.glyph != root.emoji.name: Text {
+    // A custom emoji's glyph is the private-use character the font batch of
+    // its server draws, which no text font has: its key holds it apart, as a
+    // Unicode emoji's key is its glyph. Until a custom one's picture arrives
+    // it shows the quiet square, not a text that draws nothing.
+    property <bool> draws-text: root.shown-picture.width == 0
+        && root.emoji.glyph != root.emoji.name && root.emoji.glyph == root.emoji.key;
+    if root.draws-text: Text {
         text: root.emoji.glyph; font-family: root.font; font-size: root.side;
         // An emoji font's line box is taller than its size, so the text needs
         // more room than the glyph takes: at the size itself, Skia cut the top
@@ -45,7 +51,7 @@ export component EmojiFace inherits Rectangle {
         width: parent.width; height: root.side * 1.5; y: (parent.height - self.height) / 2;
         horizontal-alignment: center; vertical-alignment: center;
     }
-    if root.shown-picture.width == 0 && root.emoji.glyph == root.emoji.name: Rectangle {
+    if root.shown-picture.width == 0 && !root.draws-text: Rectangle {
         width: root.side * 0.8; height: root.side * 0.8; border-radius: root.side * 0.2;
         x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2;
         background: Theme.overlay.with-alpha(0.07);

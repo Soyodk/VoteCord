@@ -939,7 +939,8 @@ struct Layout {
     sidebar_width: Option<f32>,
     /// The width of a Discord thread shown beside its channel.
     aside_width: Option<f32>,
-    /// The expression picker's width, the GIFs and the emoji alike, as its
+    /// The expression picker's width, the GIFs, the emoji and the commands
+    /// alike, as its
     /// left edge last dragged it wider. `gif_picker_width` named it while only
     /// the GIFs took it.
     #[serde(alias = "gif_picker_width")]
@@ -1422,6 +1423,9 @@ struct Models {
     /// The picker's sidebar, built with the grid it jumps through.
     emoji_sections: Rc<VecModel<EmojiSection>>,
     emoji_suggestions: Rc<VecModel<EmojiCell>>,
+    /// The commands tab's rows, and the applications its chips keep to.
+    command_browser: Rc<VecModel<CommandRow>>,
+    command_apps: Rc<VecModel<SharedString>>,
     forward_targets: Rc<VecModel<PlaceRow>>,
     switcher_places: Rc<VecModel<PlaceRow>>,
     participants: Rc<VecModel<PersonRow>>,
@@ -1490,6 +1494,8 @@ impl Models {
         window.set_emoji_rows(ModelRc::from(self.emoji_rows.clone()));
         window.set_emoji_sections(ModelRc::from(self.emoji_sections.clone()));
         window.set_emoji_suggestions(ModelRc::from(self.emoji_suggestions.clone()));
+        window.set_command_browser_rows(ModelRc::from(self.command_browser.clone()));
+        window.set_command_apps(ModelRc::from(self.command_apps.clone()));
         window.set_forward_targets(ModelRc::from(self.forward_targets.clone()));
         window.set_switcher_places(ModelRc::from(self.switcher_places.clone()));
         window.set_participants(ModelRc::from(self.participants.clone()));
@@ -1579,6 +1585,11 @@ struct Adapter {
     /// The rows of the emoji picker's grid that may hold pictures it drew, first
     /// and last: see `fill_shown_glyphs`.
     emoji_rows_filled: (usize, usize),
+    /// What the commands tab last built its rows from: the room, the version of
+    /// its commands, the search and the application chosen.
+    command_browser_shown: Option<(String, usize, String, String)>,
+    /// The names of the commands the tab's rows show, by row, for a click.
+    command_browser_names: Vec<String>,
     app: Application,
     models: Models,
     icons: Icons,
@@ -1855,6 +1866,8 @@ impl Adapter {
                 root,
                 layout,
                 emoji_rows_filled: (0, 0),
+                command_browser_shown: None,
+                command_browser_names: Vec::new(),
                 app,
                 models,
                 icons,
