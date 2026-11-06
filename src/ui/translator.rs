@@ -15,54 +15,63 @@ pub(super) fn translate(text: &str) -> Result<String, String> {
         .timeout_write(Duration::from_secs(5))
         .build();
 
-    let mut remaining = text;
-    let mut translated = String::with_capacity(text.len());
+    let normalized = text.replace("\r\n", "\n");
+    let mut translated = String::with_capacity(normalized.len());
 
-    while !remaining.is_empty() {
-        let end = chunk_end(remaining);
-        let chunk = &remaining[..end];
-        let mut query = url::form_urlencoded::Serializer::new(String::new());
-        query.append_pair("q", chunk);
-        query.append_pair("langpair", "autodetect|pt-BR");
-        let query = query.finish();
-        let address = format!("https://api.mymemory.translated.net/get?{query}");
-        let response = agent
-            .get(&address)
-            .call()
-            .map_err(|error| format!("MyMemory request failed: {error}"))?;
-        let body = response
-            .into_string()
-            .map_err(|error| format!("Could not read the translation response: {error}"))?;
-        if body.len() > MAX_RESPONSE_BYTES {
-            return Err("The translation service returned an unexpectedly large response.".into());
+    for (paragraph_index, paragraph) in normalized.split("\n\n").enumerate() {
+        if paragraph_index > 0 {
+            translated.push_str("\n\n");
         }
+        let mut remaining = paragraph;
+        let mut first_chunk = true;
 
-        let value: serde_json::Value = serde_json::from_str(&body)
-            .map_err(|error| format!("The translation service returned invalid data: {error}"))?;
-        let status = value
-            .get("responseStatus")
-            .and_then(|status| status.as_i64().or_else(|| status.as_str()?.parse().ok()))
-            .unwrap_or_default();
-        if status != 200 {
-            let detail = value
-                .get("responseDetails")
+        while !remaining.is_empty() {
+            let end = chunk_end(remaining);
+            let chunk = &remaining[..end];
+            let mut query = url::form_urlencoded::Serializer::new(String::new());
+            query.append_pair("q", chunk);
+            query.append_pair("langpair", "autodetect|pt-BR");
+            let query = query.finish();
+            let address = format!("https://api.mymemory.translated.net/get?{query}");
+            let response = agent
+                .get(&address)
+                .call()
+                .map_err(|error| format!("MyMemory request failed: {error}"))?;
+            let body = response
+                .into_string()
+                .map_err(|error| format!("Could not read the translation response: {error}"))?;
+            if body.len() > MAX_RESPONSE_BYTES {
+                return Err("The translation service returned an unexpectedly large response.".into());
+            }
+
+            let value: serde_json::Value = serde_json::from_str(&body)
+                .map_err(|error| format!("The translation service returned invalid data: {error}"))?;
+            let status = value
+                .get("responseStatus")
+                .and_then(|status| status.as_i64().or_else(|| status.as_str()?.parse().ok()))
+                .unwrap_or_default();
+            if status != 200 {
+                let detail = value
+                    .get("responseDetails")
+                    .and_then(serde_json::Value::as_str)
+                    .unwrap_or("The service rejected the request.");
+                return Err(format!("MyMemory: {detail}"));
+            }
+
+            let part = value
+                .get("responseData")
+                .and_then(|data| data.get("translatedText"))
                 .and_then(serde_json::Value::as_str)
-                .unwrap_or("The service rejected the request.");
-            return Err(format!("MyMemory: {detail}"));
-        }
+                .filter(|part| !part.trim().is_empty())
+                .ok_or_else(|| "The service did not return a translation.".to_owned())?;
 
-        let part = value
-            .get("responseData")
-            .and_then(|data| data.get("translatedText"))
-            .and_then(serde_json::Value::as_str)
-            .filter(|part| !part.trim().is_empty())
-            .ok_or_else(|| "The service did not return a translation.".to_owned())?;
-
-        if !translated.is_empty() {
-            translated.push(' ');
+            if !first_chunk {
+                translated.push(' ');
+            }
+            translated.push_str(&decode_entities(part));
+            first_chunk = false;
+            remaining = &remaining[end..];
         }
-        translated.push_str(&decode_entities(part));
-        remaining = &remaining[end..];
     }
 
     Ok(translated)
