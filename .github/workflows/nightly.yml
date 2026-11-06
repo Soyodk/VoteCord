@@ -100,9 +100,58 @@ jobs:
           if-no-files-found: error
           compression-level: 0
 
+  windows-installer:
+    needs: [version, windows]
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.version.outputs.commit }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: windows
+          path: dist/windows
+      - name: Install pinned Inno Setup
+        shell: pwsh
+        run: |
+          $url = "https://github.com/jrsoftware/issrc/releases/download/is-7_1_0/innosetup-7.1.0-x64.exe"
+          $installer = Join-Path $env:RUNNER_TEMP "innosetup-7.1.0-x64.exe"
+          Invoke-WebRequest -Uri $url -OutFile $installer
+          $expected = "0362a383ed217d4c4239b5933866dd96d3eb2102737da92f80f6057a4b40df2f"
+          $actual = (Get-FileHash -Algorithm SHA256 $installer).Hash.ToLowerInvariant()
+          if ($actual -ne $expected) { throw "Inno Setup SHA-256 mismatch: $actual" }
+          $destination = Join-Path $env:RUNNER_TEMP "InnoSetup"
+          $process = Start-Process -FilePath $installer -ArgumentList @("/VERYSILENT", "/SUPPRESSMSGBOXES", "/CURRENTUSER", "/NORESTART", "/DIR=$destination") -Wait -PassThru
+          if ($process.ExitCode -ne 0) { throw "Inno Setup exited with $($process.ExitCode)" }
+      - name: Build Windows setup installer
+        shell: pwsh
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          $zip = Get-ChildItem "dist/windows/Votecord-$env:VERSION-windows-x64.zip" | Select-Object -First 1
+          if (-not $zip) { throw "Portable Windows ZIP not found" }
+          $package = Join-Path $env:RUNNER_TEMP "VotecordPackage"
+          New-Item -ItemType Directory -Force -Path $package | Out-Null
+          Expand-Archive -LiteralPath $zip.FullName -DestinationPath $package -Force
+          $source = Join-Path $package "Votecord-$env:VERSION-windows-x64"
+          if (-not (Test-Path (Join-Path $source "votecord.exe"))) { throw "votecord.exe missing from package" }
+          $output = (Resolve-Path "dist/windows").Path
+          $versionNumber = ($env:VERSION -split "-")[0]
+          $iscc = Join-Path $env:RUNNER_TEMP "InnoSetup/ISCC.exe"
+          & $iscc "/DAppVersion=$env:VERSION" "/DVersionNumber=$versionNumber" "/DSourceDir=$source" "/O$output" "packaging/windows/votecord.iss"
+          if ($LASTEXITCODE -ne 0) { throw "Inno Setup compiler failed with $LASTEXITCODE" }
+          $setup = Join-Path $output "Votecord-$env:VERSION-windows-x64-setup.exe"
+          if (-not (Test-Path $setup)) { throw "Setup executable was not created" }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-installer
+          path: dist/windows/Votecord-*-windows-x64-setup.exe
+          if-no-files-found: error
+          compression-level: 0
+
   release:
     if: github.ref == 'refs/heads/main'
-    needs: [version, linux, windows]
+    needs: [version, linux, windows, windows-installer]
     runs-on: ubuntu-latest
     permissions:
       contents: write
