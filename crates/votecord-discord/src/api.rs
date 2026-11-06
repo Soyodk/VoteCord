@@ -2436,18 +2436,18 @@ fn command_option(option: &SendingOption<'_>) -> Value {
         "type": option.kind,
     });
     if matches!(option.kind, 1 | 2) {
-        built["options"] = option
+        built["options"] = json!(option
             .options
             .iter()
             .map(command_option)
-            .collect::<Vec<_>>();
+            .collect::<Vec<_>>());
     } else {
         let value = match option.kind {
             4 => option
                 .value
                 .parse::<i64>()
                 .map(|number| json!(number))
-                .unwrap_or_else(|| json!(option.value)),
+                .unwrap_or_else(|_| json!(option.value)),
             5 => json!(matches!(option.value, "true" | "1" | "yes")),
             6 | 7 | 8 => json!(mention_id(option.value)),
             _ => json!(option.value),
