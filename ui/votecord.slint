@@ -583,7 +583,7 @@ export component VotecordWindow inherits Window {
     in-out property <string> command-browser-app;
     in property <string> command-browser-note;
     /// The tab shows, so the application rebuilds its rows as its commands arrive.
-    in property <bool> command-browser-open;
+    in-out property <bool> command-browser-open;
     callback command-browser-refresh;
     callback command-browser-chosen(int);
     /// The update bar: the version it offers, whether its installer is
