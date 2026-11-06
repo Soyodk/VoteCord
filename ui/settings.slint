@@ -1344,6 +1344,7 @@ export component AddonsSettings inherits VerticalLayout {
         text: "Message translator";
         description: "Adds Translate to the three-dot menu of messages.";
         checked: root.translator-enabled;
+        controlled: true;
         toggled(enabled) => {
             root.translator-enabled = enabled;
             root.translator-enabled-toggled(enabled);
