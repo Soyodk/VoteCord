@@ -400,11 +400,11 @@ impl Adapter {
         }
         // The bars and menus over messages show their emoji as cells too, and
         // what each decodes is the picture the account may use here.
-        let mut cells: Vec<String> = Vec::new();
+        let mut cells = std::collections::HashSet::<String>::new();
         for model in [&self.models.bar_reactions, &self.models.menu_reactions] {
             for index in 0..model.row_count() {
                 if let Some(cell) = model.row_data(index) {
-                    cells.push(cell.key.to_string());
+                    cells.insert(cell.key.to_string());
                 }
             }
         }
