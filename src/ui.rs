@@ -59,6 +59,7 @@ mod server_settings;
 mod shell;
 mod theme;
 mod tiles;
+mod translator;
 mod title_bar;
 
 use callbacks::bind_callbacks;
@@ -962,6 +963,8 @@ struct Layout {
     reactions: HashMap<String, u32>,
     /// List Discord channels hidden from this account, locked.
     show_hidden_channels: bool,
+    /// The optional message translator, off until enabled in Addons.
+    translator_enabled: bool,
     /// Reading in Votecord marks Discord channels read on Discord; on unless turned off.
     sync_discord_reads: Option<bool>,
     /// Discord shows this account idle after 10 minutes nobody uses Votecord;
@@ -1233,6 +1236,7 @@ impl Layout {
         self.apply_custom_games(window);
         window.set_show_idle(self.show_idle.unwrap_or(true));
         window.set_hide_blocked(self.hide_blocked);
+        window.set_translator_enabled(self.translator_enabled);
         window.set_flash_taskbar(self.flash_taskbar.unwrap_or(true));
         // Before the first frame, which the event loop draws. A window made
         // again, after closing to the tray, keeps the theme this way too.
