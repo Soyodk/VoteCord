@@ -479,7 +479,7 @@ impl Animations {
         self.side = frame_side(window.window().scale_factor());
         let waiting = !self.decoding.is_empty()
             || self.queue.len() > 0
-            || !i_slint_core::votecord_emoji::is_empty();
+            || (playing && !i_slint_core::votecord_emoji::is_empty());
         if !waiting {
             self.timer.stop();
             self.interval = 0;
