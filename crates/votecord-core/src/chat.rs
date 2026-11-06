@@ -2047,6 +2047,8 @@ pub struct SlashOption {
     pub required: bool,
     /// The choices an argument of kind 3 offers, when it has any.
     pub choices: Vec<String>,
+    /// The arguments nested inside a subcommand or subcommand group.
+    pub options: Vec<SlashOption>,
 }
 
 /// A slash command ready to send, its options filled from the composer's
@@ -2144,7 +2146,10 @@ pub fn slash_steps(command: &SlashCommand, words: &[String]) -> SlashSteps {
     let mut path: Vec<usize> = Vec::new();
     // The subcommand chain: each level's choices show as steps, one chosen
     // by a word naming it.
-    while options.first().is_some_and(|option| matches!(option.kind, 1 | 2)) {
+    while options
+        .first()
+        .is_some_and(|option| matches!(option.kind, 1 | 2))
+    {
         let choices = options;
         let chosen = words
             .get(word)
@@ -2194,7 +2199,7 @@ pub fn slash_steps(command: &SlashCommand, words: &[String]) -> SlashSteps {
             description: option.description.clone(),
             kind: option.kind,
             required: option.required,
-            value,
+            value: value.clone(),
         });
         if value.is_empty() {
             continue;
@@ -2211,7 +2216,9 @@ pub fn slash_steps(command: &SlashCommand, words: &[String]) -> SlashSteps {
     // it stays the one being filled.
     let extra = &words[(word + filled_arguments).min(words.len())..];
     if !extra.is_empty()
-        && let Some(index) = (start..start + filled_arguments).rev().find(|&index| steps[index].kind == 3)
+        && let Some(index) = (start..start + filled_arguments)
+            .rev()
+            .find(|&index| steps[index].kind == 3)
     {
         let joined = format!("{} {}", steps[index].value, extra.join(" "));
         steps[index].value = joined.clone();
@@ -2229,9 +2236,10 @@ pub fn slash_steps(command: &SlashCommand, words: &[String]) -> SlashSteps {
             filled,
         };
     }
+    let current = (start + filled_arguments).min(steps.len());
     SlashSteps {
         steps,
-        current: (start + filled_arguments).min(steps.len()),
+        current,
         filled,
     }
 }

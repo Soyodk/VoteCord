@@ -21,7 +21,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with:
-          ref: main
+          ref: ${{ github.sha }}
       - id: version
         run: |
           current=$(sed -n 's/^version = "\(.*\)"$/\1/p' Cargo.toml | head -1)
@@ -101,6 +101,7 @@ jobs:
           compression-level: 0
 
   release:
+    if: github.ref == 'refs/heads/main'
     needs: [version, linux, windows]
     runs-on: ubuntu-latest
     permissions:
