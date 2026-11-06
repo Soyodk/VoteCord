@@ -143,15 +143,12 @@ pub fn only_emoji(text: &str) -> bool {
                 first.len_utf8()
             } else {
                 // The longest emoji the rest starts with, such as a family.
-                let ends: Vec<usize> = rest
+                let Some(end) = rest
                     .char_indices()
-                    .map(|(index, c)| index + c.len_utf8())
                     .take(12)
-                    .collect();
-                let Some(&end) = ends
-                    .iter()
-                    .rev()
-                    .find(|&&end| emojis::get(&rest[..end]).is_some())
+                    .map(|(index, c)| index + c.len_utf8())
+                    .filter(|&end| emojis::get(&rest[..end]).is_some())
+                    .last()
                 else {
                     return false;
                 };
