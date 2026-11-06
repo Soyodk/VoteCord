@@ -14,6 +14,7 @@ use super::*;
 /// delays are read with its pixels, so this only covers a picture that lost
 /// them.
 const DEFAULT_DELAY: u32 = 100;
+const MAX_FRAMES: usize = 48;
 
 /// One animated emoji's decoded frames, ready for the registry.
 ///
@@ -163,7 +164,7 @@ struct Kept {
 }
 
 impl Cache {
-    pub(super) const BUDGET: usize = 6 * 1024 * 1024;
+    pub(super) const BUDGET: usize = 3 * 1024 * 1024;
 
     pub(super) fn new() -> Self {
         Self {
@@ -213,6 +214,7 @@ impl Cache {
     pub(super) fn pin<'a>(&mut self, keys: impl IntoIterator<Item = &'a str>) {
         self.pinned.clear();
         self.pinned.extend(keys.into_iter().map(str::to_owned));
+        self.stills.retain(|key| self.pinned.contains(key));
     }
 
     /// Drops the frames shown longest ago until the budget is met again,
@@ -225,12 +227,14 @@ impl Cache {
     /// megabytes of pictures to make eviction happen.
     fn evict_to(&mut self, budget: usize) {
         while self.bytes > budget {
-            let Some(key) = self.longest_unshown() else {
-                // Only pinned emoji are left, and they are never taken.
+            let Some(key) = self.longest_unshown().or_else(|| self.longest_any()) else {
                 return;
             };
             if let Some(taken) = self.entries.remove(&key) {
                 self.bytes -= taken.frames.bytes();
+                if self.pinned.contains(&key) {
+                    self.stills.insert(key.clone());
+                }
                 i_slint_core::votecord_emoji::remove(&key);
             }
         }
@@ -241,6 +245,14 @@ impl Cache {
         self.entries
             .iter()
             .filter(|(key, _)| !self.pinned.contains(*key))
+            .min_by_key(|(_, kept)| kept.shown)
+            .map(|(key, _)| key.clone())
+    }
+
+    /// The oldest key of all, used only when visible frames alone exceed budget.
+    fn longest_any(&self) -> Option<String> {
+        self.entries
+            .iter()
             .min_by_key(|(_, kept)| kept.shown)
             .map(|(key, _)| key.clone())
     }
@@ -509,7 +521,7 @@ impl Animations {
 /// The side frames decode at: 48px, as jumbo text draws an emoji, for the
 /// screen's scale, and never past the 96 that keeps the cache's budget useful.
 fn frame_side(scale: f32) -> u32 {
-    (48.0 * scale.max(1.0)).round().clamp(48.0, 96.0) as u32
+    (48.0 * scale.max(1.0)).round().clamp(48.0, 64.0) as u32
 }
 
 /// An animation's frames at `side`, and how long each shows, decoded whole and
@@ -519,10 +531,11 @@ fn decode(picture: &Picture, side: u32) -> (Vec<Vec<u8>>, Vec<u32>) {
     let delays = picture
         .animation
         .as_ref()
-        .map(|animation| animation.delays.clone())
+        .map(|animation| animation.delays.iter().copied().take(MAX_FRAMES).collect())
         .unwrap_or_default();
     let frames = picture
         .frames()
+        .take(MAX_FRAMES)
         .filter_map(|frame| {
             let decoded = image::RgbaImage::from_raw(picture.width, picture.height, frame)?;
             let scaled = imageops::resize(
