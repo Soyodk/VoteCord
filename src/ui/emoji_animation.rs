@@ -205,20 +205,19 @@ impl Cache {
         Some(kept.frames.clone())
     }
 
-    /// Pins what a refresh just showed, so eviction never takes it.
+    /// Pins what a refresh just showed, so eviction prefers to leave it alone.
     ///
-    /// Every refresh pins the whole visible set, so this replaces the pinned
-    /// set rather than adding to it. A pinned set larger than the budget
-    /// stays: an emoji dropping back to its still while it is on screen is
-    /// worse than the memory, and it is what a budget alone would do.
+    /// Every refresh pins the whole visible set, replacing the previous one.
+    /// If visible frames alone exceed the hard budget, the oldest pinned one
+    /// falls back to its still image rather than letting memory grow without limit.
     pub(super) fn pin<'a>(&mut self, keys: impl IntoIterator<Item = &'a str>) {
         self.pinned.clear();
         self.pinned.extend(keys.into_iter().map(str::to_owned));
         self.stills.retain(|key| self.pinned.contains(key));
     }
 
-    /// Drops the frames shown longest ago until the budget is met again,
-    /// never one pinned.
+    /// Drops the least-recently-shown frames until the hard budget is met;
+    /// pinned frames are a last resort.
     pub(super) fn evict(&mut self) {
         self.evict_to(Self::BUDGET);
     }
@@ -313,7 +312,7 @@ pub(super) struct Animations {
     done: std::sync::mpsc::Sender<Decoded>,
     decoded: std::sync::mpsc::Receiver<Decoded>,
     /// The side frames decode at: 48px as jumbo text draws them, for the
-    /// screen's scale, and never past 96.
+    /// screen's scale, and never past 64.
     side: u32,
     /// Moves the clock while anything plays; stopped otherwise, so a window
     /// with no animated emoji on screen has no wakeups.
@@ -338,7 +337,7 @@ impl Animations {
     }
 
     /// Names the animated emoji a refresh shows: those kept are pinned so
-    /// eviction leaves them, and those missing are wanted for decoding.
+    /// eviction prefers them, and those missing are wanted for decoding.
     pub(super) fn show(
         &mut self,
         shown: impl IntoIterator<Item = (String, Option<char>, String)>,
@@ -519,13 +518,12 @@ impl Animations {
 }
 
 /// The side frames decode at: 48px, as jumbo text draws an emoji, for the
-/// screen's scale, and never past the 96 that keeps the cache's budget useful.
+/// screen's scale, and never past 64 to bound decoded pixel memory.
 fn frame_side(scale: f32) -> u32 {
     (48.0 * scale.max(1.0)).round().clamp(48.0, 64.0) as u32
 }
 
-/// An animation's frames at `side`, and how long each shows, decoded whole and
-/// scaled at once: the picture's own frames are as large as its file.
+/// Up to 48 frames of an animation at `side`, scaled before they enter the cache.
 fn decode(picture: &Picture, side: u32) -> (Vec<Vec<u8>>, Vec<u32>) {
     use image::imageops;
     let delays = picture
@@ -670,20 +668,27 @@ mod tests {
     }
 
     #[test]
-    fn a_pinned_emoji_stays_even_over_the_budget() {
+    fn a_pinned_emoji_is_evicted_when_the_hard_budget_requires_it() {
         let mut cache = Cache::new();
         cache.insert("a".to_owned(), Some('a'), small(1));
         cache.insert("b".to_owned(), Some('b'), small(1));
         cache.pin(["b"]);
         cache.evict_to(0);
-        assert!(cache.contains("b"), "on screen, so it keeps its frames");
+        assert!(!cache.contains("b"), "the hard budget also applies to visible emoji");
+        assert!(cache.is_still("b"), "do not decode it again every refresh");
         assert!(!cache.contains("a"));
-        assert_eq!(cache.bytes(), 16, "over the budget, and pinned");
-        // A refresh pins what it showed, so the pinned set replaces the last.
-        cache.pin(["a"]);
-        cache.evict_to(0);
-        assert!(!cache.contains("b"));
         assert_eq!(cache.bytes(), 0);
+        // Once it leaves the visible set, its temporary still marker is dropped.
+        cache.pin(["a"]);
+        assert!(!cache.is_still("b"));
+    }
+
+    #[test]
+    fn animation_frames_are_capped_for_high_dpi_screens() {
+        assert_eq!(frame_side(1.0), 48);
+        assert_eq!(frame_side(2.0), 64);
+        assert_eq!(frame_side(4.0), 64);
+        assert_eq!(MAX_FRAMES, 48);
     }
 
     #[test]
