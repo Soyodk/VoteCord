@@ -1,0 +1,3 @@
+// Votecord's icon, which Explorer shows for votecord.exe and its shortcuts, and the
+// window loads by its number (src/icon.rs). scripts/make-windows-icon draws it.
+1 ICON "votecord.ico"

@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="12 12 78 78">
+  <mask id="dots">
+    <path fill="#fff" stroke="#fff" stroke-width="3" stroke-linejoin="round" d="M32,18 H70 Q84,18 84,32 V58 Q84,72 70,72 H54 L38,88 L36,72 H32 Q18,72 18,58 V32 Q18,18 32,18 Z" />
+    <path d="M37,47 L47,57 L67,37" fill="none" stroke="#000" stroke-width="10" stroke-linecap="round" stroke-linejoin="round" />
+  </mask>
+  <rect x="0" y="0" width="100" height="100" fill="#fff" mask="url(#dots)" />
+</svg>
