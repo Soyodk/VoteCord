@@ -29,7 +29,7 @@ import { PersonRow, CallLink, CallLinkCard, LinkTouch, SignalIcon, VoiceDock, St
 import { ServerRow, RoomRow, StatusDot, ServerRail, ServerHeader, RoomList } from "rail.slint";
 import { StagedFile, StagedTile, Composer, MentionRow, MentionList, EmojiSuggestions, CommandRow, CommandList, SlashHintRow, SlashHints, RequestBar } from "composer.slint";
 import { EmojiCell, EmojiRow, EmojiSection, EmojiCard, EmojiCardView, MessageRow, ReactionToggle, EmojiButton, EmojiPicker, MessageMenu, MessageGallery, MessageStickers, FileCard, MessageContent, EmbedView, BotTag, NoConversation, ConversationStart, HistoryEdge, UnreadBar, PresentBar, ImageViewer, VideoViewer, VideoPlayer, Polls } from "messages.slint";
-import { SettingsRow, SettingsScreen, AccountSettings, AppearanceSettings, ThemeCard, ThemeColour, VoiceSettings, MessageSettings, NotificationSettings, SoundSettings, AdvancedSettings, DiscordLinkSettings, DiscordSettings, NitroSettings, BlockedRow, GameActivitySettings, GameExecutable } from "settings.slint";
+import { SettingsRow, SettingsScreen, AccountSettings, AppearanceSettings, ThemeCard, ThemeColour, VoiceSettings, MessageSettings, NotificationSettings, SoundSettings, AdvancedSettings, DiscordLinkSettings, DiscordSettings, NitroSettings, AddonsSettings, BlockedRow, GameActivitySettings, GameExecutable } from "settings.slint";
 import { MemberRow, ProfileData, ProfileServerRow, MemberPanel, ProfileCard, ServerCard, RoleCard } from "people.slint";
 import { RequestRow, FriendRow, FriendsScreen, HeaderTab, RequestsScreen, AddFriendDialog } from "friends.slint";
 import { ContactRow, PlaceRow, ReactionPill, ReactorRow, StatusDialog, NewDmDialog, ForwardDialog, QuickSwitcher, ReactionsDialog, StatusMenu, PersonPrompt, PersonDialog, LeavingDialog, PollAnswerDraft, PollDialog } from "dialogs.slint";
@@ -369,6 +369,12 @@ export component VotecordWindow inherits Window {
     callback show-hidden-channels-toggled(bool);
     /// A link in a message was clicked.
     callback open-link(string);
+    callback translate-message(string);
+    in-out property <bool> translation-open;
+    in-out property <bool> translation-loading;
+    in-out property <string> translation-text;
+    in-out property <bool> translator-enabled;
+    callback translator-enabled-toggled(bool);
     in-out property <bool> sync-discord-reads;
     callback sync-discord-reads-toggled(bool);
     in-out property <bool> show-idle: true;
@@ -2060,12 +2066,14 @@ export component VotecordWindow inherits Window {
             view-thread(room) => { root.open-aside(room); message-menu.close(); }
             view-reactions(item) => { root.view-reactions(item, ""); message-menu.close(); }
             emoji-font: root.emoji-font; composer-enabled: root.composer-enabled; forward-allowed: root.forward-allowed; preview: root.preview;
+            translator-enabled: root.translator-enabled;
             react(item, key) => { root.react(item, key); message-menu.close(); }
             open-picker(item) => { root.open-picker(item); message-menu.close(); }
             edit(item) => { root.edit(item); root.focus-composer-of-menu(); message-menu.close(); }
             reply(item) => { root.reply(item); root.focus-composer-of-menu(); message-menu.close(); }
             start-forward(item) => { root.start-forward(item); message-menu.close(); }
             copy-text(text) => { root.copy-text(text); message-menu.close(); }
+            translate-message(text) => { root.translate-message(text); message-menu.close(); }
             pin-message(item) => { root.pin-message(item); message-menu.close(); }
             request-delete(item) => { root.request-delete(item); message-menu.close(); }
             end-poll(item) => { Polls.ask-end(item); message-menu.close(); }
@@ -3528,6 +3536,10 @@ export component VotecordWindow inherits Window {
             banner-animation <=> root.banner-animation;
             banner-animation-chosen => { root.banner-animation-chosen(); }
         }
+        if root.settings-section == 10: AddonsSettings {
+            translator-enabled <=> root.translator-enabled;
+            translator-enabled-toggled(enabled) => { root.translator-enabled-toggled(enabled); }
+        }
         if root.settings-section == 4 && !root.discord-linked: DiscordLinkSettings {
             link-phase: root.link-phase; link-code: root.link-code; link-name: root.link-name; link-note: root.link-note;
             link-discord => { root.link-discord(); }
@@ -4142,6 +4154,51 @@ export component VotecordWindow inherits Window {
     }
     if root.title-height > 0 && !root.window-maximized: ResizeEdges {
         resize-window(direction) => { root.resize-window(direction); }
+    }
+
+    if root.translation-open: Rectangle {
+        width: root.width; height: root.height;
+        background: #00000099;
+        TouchArea { clicked => { root.translation-open = false; } }
+        Rectangle {
+            x: (parent.width - self.width) / 2;
+            y: (parent.height - self.height) / 2;
+            width: min(500px, parent.width - 40px);
+            height: min(360px, parent.height - 40px);
+            border-radius: 12px; border-width: 1px; border-color: Theme.edge;
+            background: Theme.raised;
+            TouchArea { }
+            VerticalLayout {
+                padding: 18px; spacing: 12px;
+                HorizontalLayout {
+                    Text { text: "Message translation"; color: Theme.text; font-size: 18px; font-weight: 700; }
+                    Rectangle { horizontal-stretch: 1; }
+                    IconButton {
+                        icon: @image-url("icons/x.svg"); label: "Close translation";
+                        size: 30px; glyph: 16px;
+                        clicked => { root.translation-open = false; }
+                    }
+                }
+                Rectangle {
+                    vertical-stretch: 1; border-radius: 8px; background: Theme.sunken;
+                    Text {
+                        x: 14px; y: 14px; width: parent.width - 28px; height: parent.height - 28px;
+                        text: root.translation-loading ? "Translating..." : root.translation-text;
+                        color: Theme.text; font-size: 15px; wrap: word-wrap;
+                        vertical-alignment: top;
+                    }
+                }
+                HorizontalLayout {
+                    ActionButton {
+                        text: "Copy translation";
+                        enabled: !root.translation-loading && root.translation-text != "";
+                        clicked => { root.copy-text(root.translation-text); }
+                    }
+                    Rectangle { horizontal-stretch: 1; }
+                    ActionButton { text: "Close"; clicked => { root.translation-open = false; } }
+                }
+            }
+        }
     }
     if Tip.text != "": Rectangle {
         property <length> w: tip-text.preferred-width + 20px;
