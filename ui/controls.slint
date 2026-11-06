@@ -455,6 +455,12 @@ export component Picture inherits Image {
     property <int> frame;
     property <int> played;
     source: root.frames.length > 1 ? root.frames[root.frame] : root.still;
+    // A different GIF can have fewer frames than the one it replaces.
+    // Start it at its first frame rather than indexing past its end.
+    changed frames => {
+        root.frame = 0;
+        root.played = 0;
+    }
     // Changing how long it may run starts its count again, so a choice
     // switched while a banner shows takes effect at once.
     changed play-for => { root.played = 0; }
@@ -463,8 +469,8 @@ export component Picture inherits Image {
             && (root.play-for == 0 || root.played < root.play-for);
         interval: max(20, root.delays[root.frame]) * 1ms;
         triggered => {
-            root.frame = mod(root.frame + 1, root.frames.length);
             root.played += max(20, root.delays[root.frame]);
+            root.frame = mod(root.frame + 1, root.frames.length);
         }
     }
 }
