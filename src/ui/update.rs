@@ -120,17 +120,19 @@ async fn latest_release() -> anyhow::Result<Release> {
         .timeout(std::time::Duration::from_secs(30))
         .build()
         .context("could not set up HTTPS")?;
-    let release: Release = http
-        .get(RELEASES)
-        .header("Accept", "application/vnd.github+json")
-        .send()
-        .await
-        .context("could not reach GitHub")?
-        .error_for_status()
-        .context("GitHub refused the update check")?
-        .json()
-        .await
-        .context("GitHub answered something else than a release")?;
+    let release: Release = serde_json::from_str(
+        &http.get(RELEASES)
+            .header("Accept", "application/vnd.github+json")
+            .send()
+            .await
+            .context("could not reach GitHub")?
+            .error_for_status()
+            .context("GitHub refused the update check")?
+            .text()
+            .await
+            .context("GitHub answered something unreadable")?,
+    )
+    .context("GitHub answered something else than a release")?;
     Ok(release)
 }
 
