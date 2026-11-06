@@ -2199,7 +2199,7 @@ pub fn slash_steps(command: &SlashCommand, words: &[String]) -> SlashSteps {
             description: option.description.clone(),
             kind: option.kind,
             required: option.required,
-            value,
+            value: value.clone(),
         });
         if value.is_empty() {
             continue;
@@ -2236,9 +2236,10 @@ pub fn slash_steps(command: &SlashCommand, words: &[String]) -> SlashSteps {
             filled,
         };
     }
+    let current = (start + filled_arguments).min(steps.len());
     SlashSteps {
         steps,
-        current: (start + filled_arguments).min(steps.len()),
+        current,
         filled,
     }
 }
