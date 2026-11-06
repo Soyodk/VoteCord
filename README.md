@@ -138,6 +138,8 @@ server sits in between.
 
 ## Get started
 
+**Windows:** download `Votecord-VERSION-windows-x64-setup.exe` from the [Releases page](https://github.com/Soyodk/VoteCord/releases), run it, and follow the installer. It installs for your Windows user without an administrator prompt, creates Start Menu shortcuts, and lets you enable startup at sign-in. The portable ZIP is also published there.
+
 Votecord builds from source, in the same pinned environment Yapfast does:
 
 ```sh
