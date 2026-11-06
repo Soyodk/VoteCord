@@ -1189,11 +1189,18 @@ export component AdvancedSettings inherits VerticalLayout {
     in property <bool> autostart-available;
     in-out property <bool> discord-links;
     in property <bool> discord-links-available;
+    in-out property <bool> check-updates;
     callback preferences-changed;
     callback restart;
     spacing: 16px;
     SettingsTitle { text: "Advanced"; }
 
+    SettingsSwitch {
+        text: "Check for updates";
+        description: "Votecord looks at this repository's releases on GitHub shortly after it starts and again every few hours, and offers the update in its bar. Nothing is sent but the request itself.";
+        checked <=> root.check-updates;
+        toggled => { root.preferences-changed(); }
+    }
     if root.autostart-available: SettingsSwitch {
         text: "Start when you sign in";
         description: "Votecord starts in the system tray when you sign in to your computer, so messages and calls reach you.";

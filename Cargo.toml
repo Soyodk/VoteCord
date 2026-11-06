@@ -23,7 +23,7 @@ resolver = "3"
 default = ["desktop", "discord"]
 matrix = ["votecord-core/matrix"]
 discord = ["votecord-core/discord", "dep:qrcode"]
-desktop = ["dep:slint", "dep:votecord-ui", "dep:skia-safe", "dep:rfd", "dep:memmap2", "dep:emojis", "dep:webbrowser", "dep:i-slint-core", "dep:zbus", "dep:arboard", "dep:image", "dep:tempfile", "dep:wl-clipboard-rs", "dep:wayland-client", "dep:wayland-backend", "dep:wayland-protocols", "dep:ksni", "dep:windows-sys", "dep:i-slint-renderer-skia", "dep:futures-util", "dep:x11rb", "dep:xkeysym"]
+desktop = ["dep:slint", "dep:votecord-ui", "dep:skia-safe", "dep:rfd", "dep:memmap2", "dep:emojis", "dep:webbrowser", "dep:i-slint-core", "dep:zbus", "dep:arboard", "dep:image", "dep:tempfile", "dep:wl-clipboard-rs", "dep:wayland-client", "dep:wayland-backend", "dep:wayland-protocols", "dep:ksni", "dep:windows-sys", "dep:i-slint-renderer-skia", "dep:futures-util", "dep:x11rb", "dep:xkeysym", "dep:reqwest", "dep:rustls"]
 # The desktop app with a window that reloads ui/ on each save, for UI work;
 # see docs/building.md.
 live-preview = ["desktop", "votecord-ui/live-preview"]
@@ -57,6 +57,11 @@ tempfile = { workspace = true, optional = true }
 tracing.workspace = true
 # The code the Discord phone app scans to link an account.
 qrcode = { version = "0.14", default-features = false, optional = true }
+# The update check reads this repository's releases on GitHub, and the Update
+# button fetches the installer from it. Both are already in the tree, through
+# the Discord and Matrix clients.
+reqwest = { version = "0.13", default-features = false, features = ["rustls-no-provider"], optional = true }
+rustls = { workspace = true, optional = true }
 
 # Desktop notifications through the freedesktop service, on the session bus Slint and
 # the keyring already use.

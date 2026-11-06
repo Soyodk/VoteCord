@@ -60,6 +60,7 @@ mod shell;
 mod theme;
 mod tiles;
 mod title_bar;
+mod update;
 
 use callbacks::bind_callbacks;
 use messages::*;
@@ -188,6 +189,7 @@ pub fn run(
     prepare(&window);
     let adapter = Adapter::new(Arc::new(runtime), root, &window)?;
     bind_callbacks(&window, &adapter);
+    update::start(&adapter);
     watch_window(&window, &adapter);
     adapter.borrow_mut().watch_away();
     adapter.borrow_mut().watch_talk_key(&window);
@@ -982,6 +984,9 @@ struct Layout {
     twelve_hour_clock: bool,
     /// Message times with their seconds, as 21:41:05.
     clock_seconds: bool,
+    /// Updates are checked on this repository's releases, and offered in the
+    /// window's bar; on unless turned off.
+    check_updates: Option<bool>,
     /// Message text: 0 small, 1 default, 2 large.
     text_size: Option<i32>,
     /// Link previews under messages; on unless turned off.
@@ -1254,6 +1259,7 @@ impl Layout {
         window.set_profile_panel(!self.profile_panel_hidden);
         window.set_twelve_hour_clock(self.twelve_hour_clock);
         window.set_clock_seconds(self.clock_seconds);
+        window.set_check_updates(self.check_updates.unwrap_or(true));
         window.set_text_size(self.text_size.unwrap_or(1).clamp(0, 2));
         window.set_link_previews(self.link_previews.unwrap_or(true));
         window.set_reply_ping_default(self.reply_ping.unwrap_or(true));
@@ -1599,6 +1605,9 @@ struct Adapter {
     call_timer: call_timer::CallTimer,
     /// Ticks ActivityClock while a profile on screen times an activity.
     activity_clock: slint::Timer,
+    /// When the next check of this repository's releases comes, as the
+    /// update bar's cycle; see [`update`].
+    update_timer: slint::Timer,
     navigation: Navigation,
     /// Whether the forward dialog was open at the last refresh.
     forwarding: bool,
@@ -1876,6 +1885,7 @@ impl Adapter {
                 away: away::Away::default(),
                 call_timer: call_timer::CallTimer::default(),
                 activity_clock: slint::Timer::default(),
+                update_timer: slint::Timer::default(),
                 navigation: Navigation::default(),
                 forwarding: false,
                 selection_version: 0,

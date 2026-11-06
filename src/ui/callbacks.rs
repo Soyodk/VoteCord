@@ -1443,6 +1443,7 @@ pub(super) fn bind_callbacks(window: &VotecordWindow, adapter: &Rc<RefCell<Adapt
         let layout = &mut adapter.layout;
         layout.twelve_hour_clock = window.get_twelve_hour_clock();
         layout.clock_seconds = window.get_clock_seconds();
+        layout.check_updates = Some(window.get_check_updates());
         layout.text_size = Some(window.get_text_size());
         layout.link_previews = Some(window.get_link_previews());
         layout.reply_ping = Some(window.get_reply_ping_default());
@@ -2122,6 +2123,20 @@ pub(super) fn bind_callbacks(window: &VotecordWindow, adapter: &Rc<RefCell<Adapt
         adapter.action(&window, Action::SetDraft(text));
         window.invoke_place_composer_caret(i32::try_from(caret).unwrap_or(i32::MAX));
         window.invoke_focus_composer();
+    });
+    let state = adapter.clone();
+    window.on_update_now(move || {
+        super::update::start_download(&state);
+    });
+    let weak = window.as_weak();
+    window.on_update_dismissed(move || {
+        let Some(window) = weak.upgrade() else { return };
+        // The bar goes, and stays gone for the version it named: a still
+        // newer release shows again.
+        window.set_update_dismissed_version(window.get_update_version());
+        window.set_update_version(SharedString::default());
+        window.set_update_note(SharedString::default());
+        window.set_update_downloading(false);
     });
     let state = adapter.clone();
     let weak = window.as_weak();

@@ -586,6 +586,20 @@ export component VotecordWindow inherits Window {
     in property <bool> command-browser-open;
     callback command-browser-refresh;
     callback command-browser-chosen(int);
+    /// The update bar: the version it offers, whether its installer is
+    /// downloading, and what went wrong if it did; the address the installer
+    /// waits at and the version the × dismissed, which keep the check and the
+    /// button talking without a turn of the application's state. All empty
+    /// while there is nothing to offer.
+    in property <string> update-version;
+    in property <bool> update-downloading;
+    in-out property <string> update-note;
+    in-out property <string> update-asset;
+    in-out property <string> update-dismissed-version;
+    /// Whether releases are checked at all; Settings → Advanced keeps it.
+    in-out property <bool> check-updates: true;
+    callback update-now;
+    callback update-dismissed;
     /// The forward dialog, open while Votecord forwards a message.
     in property <bool> forward-open;
     /// Messages here that can be forwarded offer it: Matrix forwards only
@@ -3554,6 +3568,7 @@ export component VotecordWindow inherits Window {
             multiple-windows <=> root.multiple-windows;
             start-on-sign-in <=> root.start-on-sign-in; autostart-available: root.autostart-available;
             discord-links <=> root.discord-links; discord-links-available: root.discord-links-available;
+            check-updates <=> root.check-updates;
             preferences-changed => { root.preferences-changed(); }
             restart => { root.restart(); }
         }
@@ -4181,6 +4196,51 @@ export component VotecordWindow inherits Window {
     }
     if root.title-height > 0 && !root.window-maximized: ResizeEdges {
         resize-window(direction) => { root.resize-window(direction); }
+    }
+    // The update bar, over whatever shows: a release waits, named by its
+    // version, with the button that fetches its installer and the × that puts
+    // it away, remembered for the version it named.
+    if root.update-version != "": Rectangle {
+        x: (root.width - self.width) / 2;
+        y: root.title-height + 8px;
+        width: update-row.preferred-width + 26px;
+        height: 42px;
+        border-radius: 10px;
+        background: Theme.raised;
+        border-color: Theme.accent; border-width: 1px;
+        drop-shadow-blur: 18px; drop-shadow-color: #00000066; drop-shadow-offset-y: 4px;
+        accessible-role: groupbox;
+        accessible-label: "Votecord " + root.update-version + " is available";
+        update-row := HorizontalLayout {
+            padding-left: 14px; padding-right: 10px; spacing: 10px; alignment: center;
+            Image {
+                source: @image-url("icons/sparkles.svg"); width: 16px; height: 16px;
+                colorize: Theme.accent;
+            }
+            Text {
+                text: "Votecord " + root.update-version + " is available";
+                color: Theme.text; font-size: 14px; font-weight: 600;
+                vertical-alignment: center;
+            }
+            if root.update-note != "": Text {
+                text: root.update-note;
+                color: Theme.danger; font-size: 12px;
+                vertical-alignment: center; overflow: elide;
+            }
+            ActionButton {
+                text: root.update-downloading ? "Downloading…" : "Update";
+                enabled: !root.update-downloading;
+                primary: true;
+                label: "Update Votecord to " + root.update-version;
+                clicked => { root.update-now(); }
+            }
+            IconButton {
+                icon: @image-url("icons/x.svg");
+                label: "Dismiss the update";
+                glyph: 14px;
+                clicked => { root.update-dismissed(); }
+            }
+        }
     }
     if Tip.text != "": Rectangle {
         property <length> w: tip-text.preferred-width + 20px;

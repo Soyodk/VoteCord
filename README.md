@@ -110,6 +110,8 @@ on how many servers and DMs you have.
 - **Notifications** that follow your Discord settings.
 - **Themes**: ten built in, or your own in the editor.
 - **Games on your profile**, detected among running programs.
+- **Updates offered in the app**: a bar names the newer release, and its
+  button fetches the installer and runs it.
 
 ### Not there yet
 
@@ -138,7 +140,10 @@ server sits in between.
   Votecord never sees your password.
 - The login token stays in your system's credential store, and only ever
   goes to Discord.
-- It sends no analytics or crash reports, and doesn't check for updates.
+- It sends no analytics or crash reports.
+- Updates are noticed on this repository's own releases, offered in a bar
+  whose button fetches the installer; Settings → Advanced turns the checks
+  off. Nothing is sent but the request itself.
 - Pictures and GIFs load from wherever they're hosted, such as Discord or
   Tenor.
 
