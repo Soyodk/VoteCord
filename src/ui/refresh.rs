@@ -400,11 +400,11 @@ impl Adapter {
         }
         // The bars and menus over messages show their emoji as cells too, and
         // what each decodes is the picture the account may use here.
-        let mut cells: Vec<String> = Vec::new();
+        let mut cells = std::collections::HashSet::<String>::new();
         for model in [&self.models.bar_reactions, &self.models.menu_reactions] {
             for index in 0..model.row_count() {
                 if let Some(cell) = model.row_data(index) {
-                    cells.push(cell.key.to_string());
+                    cells.insert(cell.key.to_string());
                 }
             }
         }
@@ -1224,12 +1224,34 @@ impl Adapter {
             return;
         };
         let room = &forum.list.room;
-        window.set_posts_searchable(
-            self.app
-                .may(room, votecord_core::chat::Permission::ReadHistory),
-        );
-        let posts = self.app.forum_posts().unwrap_or_default();
+        let searchable = self
+            .app
+            .may(room, votecord_core::chat::Permission::ReadHistory);
+        window.set_posts_searchable(searchable);
         let info = self.app.forum_info(room).unwrap_or_default();
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_or(0, |now| now.as_millis() as u64);
+        use std::hash::{Hash, Hasher};
+        let mut hasher = std::hash::DefaultHasher::new();
+        forum.revision().hash(&mut hasher);
+        state.list_changes.hash(&mut hasher);
+        room.hash(&mut hasher);
+        searchable.hash(&mut hasher);
+        info.tags.hash(&mut hasher);
+        info.by_creation.hash(&mut hasher);
+        info.require_tag.hash(&mut hasher);
+        info.reaction.hash(&mut hasher);
+        (now / 60_000).hash(&mut hasher);
+        let shown = hasher.finish();
+        if self.forum_shown == Some(shown) {
+            return;
+        }
+        self.forum_shown = Some(shown);
+
+        // Sorting and cloning posts is done only when their source state changes,
+        // not on every unrelated window refresh.
+        let posts = self.app.forum_posts().unwrap_or_default();
         let cards = posts.active.len() + posts.older.len();
         window.set_posts_more(forum.wants_more(cards));
         window.set_posts_loading(forum.loading());
@@ -1247,17 +1269,6 @@ impl Adapter {
         };
         window.set_posts_note(note.into());
         window.set_posts_empty(empty);
-        let now = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map_or(0, |now| now.as_millis() as u64);
-        use std::hash::{Hash, Hasher};
-        let mut hasher = std::hash::DefaultHasher::new();
-        (&posts, room, now / 60_000).hash(&mut hasher);
-        let shown = hasher.finish();
-        if self.forum_shown == Some(shown) {
-            return;
-        }
-        self.forum_shown = Some(shown);
         let row = |post| post_row(post, &info, now);
         let rows: Vec<PostRow> = match &posts.found {
             Some(Some(Ok(found))) => found.iter().map(row).collect(),
