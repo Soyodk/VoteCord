@@ -206,6 +206,18 @@ impl Application {
         // composer does, when the room's commands name one; anything else
         // sends as a message would.
         if !matches!(compose, Some(Compose::Edit { .. })) && draft.starts_with('/') {
+            if Network::of(&id) == Network::Discord {
+                if self.state.slash_commands_asked.contains(&id)
+                    && !self.state.slash_commands.contains_key(&id)
+                {
+                    self.state.notice = Some("Discord ainda está carregando os comandos /. Tente novamente em instantes.".into());
+                    return vec![];
+                }
+                if self.state.slash_commands.get(&id).is_some_and(|commands| commands.is_empty()) {
+                    self.state.notice = Some("O Discord não retornou comandos / disponíveis neste canal.".into());
+                    return vec![];
+                }
+            }
             if let Some(effects) = self.send_slash(&id, &draft) {
                 return effects;
             }
