@@ -431,7 +431,7 @@ impl Adapter {
         // already false for it.
         let playing = window.global::<Motion>().get_playing() && !self.is_inactive();
         self.animations.show(shown, pictures);
-        self.animations.run(window, pictures);
+        self.animations.run(window, pictures, playing);
         self.animations.sync(window, playing, self.weak.clone());
     }
 
