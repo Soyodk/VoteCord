@@ -456,8 +456,15 @@ impl Animations {
     /// Takes what arrived from the decoders, starts what is wanted next, and
     /// draws what shows a frame again. Called each tick and each refresh, so a
     /// decode that finishes is seen at once rather than at the next change.
-    pub(super) fn run(&mut self, window: &VotecordWindow, pictures: &HashMap<String, Arc<Picture>>) {
-        self.start(pictures);
+    pub(super) fn run(
+        &mut self,
+        window: &VotecordWindow,
+        pictures: &HashMap<String, Arc<Picture>>,
+        playing: bool,
+    ) {
+        if playing {
+            self.start(pictures);
+        }
         self.drain();
         window
             .global::<EmojiAnimations>()
@@ -477,8 +484,8 @@ impl Animations {
         i_slint_core::votecord_emoji::set_playing(playing);
         self.side = frame_side(window.window().scale_factor());
         let waiting = !self.decoding.is_empty()
-            || self.queue.len() > 0
-            || (playing && !i_slint_core::votecord_emoji::is_empty());
+            || (playing
+                && (self.queue.len() > 0 || !i_slint_core::votecord_emoji::is_empty()));
         if !waiting {
             self.timer.stop();
             self.interval = 0;
@@ -507,11 +514,13 @@ impl Animations {
                 let (Some(adapter), Some(window)) = (adapter.upgrade(), weak.upgrade()) else {
                     return;
                 };
-                let mut adapter = adapter.borrow_mut();
+                let mut borrowed = adapter.borrow_mut();
+                let playing = window.global::<Motion>().get_playing() && !borrowed.is_inactive();
                 let Adapter {
                     app, animations, ..
-                } = &mut *adapter;
-                animations.run(&window, &app.state.pictures);
+                } = &mut *borrowed;
+                animations.run(&window, &app.state.pictures, playing);
+                animations.sync(&window, playing, Rc::downgrade(&adapter));
             },
         );
     }
