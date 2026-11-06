@@ -326,7 +326,7 @@ export component SettingsCard inherits Rectangle {
 export component SettingsScreen inherits Rectangle {
     /// The section showing: 0 account, 1 voice and video, 2 messages,
     /// 3 notifications, 4 Discord, 5 sounds, 6 advanced, 7 appearance,
-    /// 8 game activity, 9 Nitro.
+    /// 8 game activity, 9 Nitro, 10 Addons.
     in-out property <int> settings-section;
     in property <bool> discord-build;
     in property <bool> preview;
@@ -344,6 +344,7 @@ export component SettingsScreen inherits Rectangle {
         { text: "Sounds", icon: @image-url("icons/volume-2.svg"), id: 5 },
         { text: "Discord", icon: @image-url("icons/discord.svg"), id: 4 },
         { text: "Nitro", icon: @image-url("icons/sparkles.svg"), id: 9 },
+        { text: "Addons", icon: @image-url("icons/settings.svg"), id: 10 },
         { text: "Game activity", icon: @image-url("icons/play.svg"), id: 8 },
         { text: "Advanced", icon: @image-url("icons/settings.svg"), id: 6 },
     ];
@@ -355,6 +356,7 @@ export component SettingsScreen inherits Rectangle {
         { text: "Messages", icon: @image-url("icons/message-circle.svg"), id: 2 },
         { text: "Notifications", icon: @image-url("icons/bell.svg"), id: 3 },
         { text: "Sounds", icon: @image-url("icons/volume-2.svg"), id: 5 },
+        { text: "Addons", icon: @image-url("icons/settings.svg"), id: 10 },
         { text: "Advanced", icon: @image-url("icons/settings.svg"), id: 6 },
     ];
     SettingsCard {
@@ -1327,6 +1329,31 @@ export component GameActivitySettings inherits VerticalLayout {
 
 /// Someone the Discord account blocked, in Settings.
 export struct BlockedRow { id: string, name: string, username: string, avatar-url: string, initial: string }
+
+// Optional features that do work only when enabled and explicitly used.
+export component AddonsSettings inherits VerticalLayout {
+    in-out property <bool> translator-enabled;
+    callback translator-enabled-toggled(bool);
+    spacing: 16px;
+    SettingsTitle { text: "Addons"; }
+    Label {
+        text: "Optional extras. Disabled addons stay idle and do not start background work.";
+    }
+    SettingsHeading { text: "MESSAGES"; }
+    SettingsSwitch {
+        text: "Message translator";
+        description: "Adds Translate to the three-dot menu of messages.";
+        checked: root.translator-enabled;
+        controlled: true;
+        toggled(enabled) => {
+            root.translator-enabled = enabled;
+            root.translator-enabled-toggled(enabled);
+        }
+    }
+    Label {
+        text: "Translation starts only after you click Translate. Message text is sent over HTTPS to MyMemory. Its terms say submitted text segments are stored long-term and may be shared with service partners. Do not translate sensitive or confidential messages. Anonymous free use is limited to 5,000 characters per day.";
+    }
+}
 
 // Settings: the Nitro perks Votecord can show, each off until turned on, so
 // the app spends the least it can by default.

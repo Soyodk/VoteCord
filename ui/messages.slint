@@ -997,6 +997,7 @@ export component MessageMenu inherits Rectangle {
     in property <[EmojiCell]> menu-reactions;
     in property <string> emoji-font;
     in property <bool> composer-enabled;
+    in property <bool> translator-enabled;
     /// Forward shows on messages that can be forwarded: Matrix forwards only
     /// from a verified device.
     in property <bool> forward-allowed;
@@ -1008,6 +1009,7 @@ export component MessageMenu inherits Rectangle {
     callback reply(string);
     callback start-forward(string);
     callback copy-text(string);
+    callback translate-message(string);
     callback pin-message(string);
     callback request-delete(string);
     /// Asks to make sure before closing this account's poll.
@@ -1065,6 +1067,10 @@ export component MessageMenu inherits Rectangle {
         if root.menu-message.body != "": MenuItem {
             text: "Copy text"; icon: @image-url("icons/copy.svg");
             clicked => { root.copy-text(root.menu-message.body); }
+        }
+        if root.translator-enabled && root.menu-message.body != "": MenuItem {
+            text: "Translate";
+            clicked => { root.translate-message(root.menu-message.body); }
         }
         if root.selection != "": MenuItem {
             text: "Copy selection"; icon: @image-url("icons/text-select.svg");
