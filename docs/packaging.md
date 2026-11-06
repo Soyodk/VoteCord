@@ -90,10 +90,7 @@ the packages and `SOURCE.txt` name it. One job runs `scripts/build-appimage`
 and `scripts/package-arch`, and another `scripts/build-windows` in the Windows shell, with the Windows Skia
 build, cargo-xwin's MSVC files and the compiled Rust dependencies
 (`Swatinem/rust-cache`) cached between runs. The Linux build has no cache: it
-compiles in the Nix sandbox, which can't reach one. The last job publishes the
-AppImage, its `.zsync` file, the Arch package, the Windows ZIP, the source snapshot and
-`SHA256SUMS.txt` as a prerelease on that commit. Wine doesn't start on the
-runner, so there's no installer. The release's notes list the commits since the
+compiles in the Nix sandbox, which can't reach one. The Windows executable is built on the Linux runner and packaged as a portable ZIP. A separate Windows runner downloads that exact ZIP, verifies and installs the pinned Inno Setup compiler, and builds `Votecord-VERSION-windows-x64-setup.exe` from the same files. The installer is per-user (no administrator prompt), creates Start Menu shortcuts, offers a desktop shortcut, and can enable launch at sign-in. The last job publishes the AppImage, its `.zsync` file, the Arch package, the Windows setup executable and portable ZIP, the source snapshot and `SHA256SUMS.txt` as a prerelease on that commit. The release's notes list the commits since the
 previous nightly, or the latest release, each with its author's GitHub account:
 features and fixes by their Conventional Commit type, the rest folded away
 (`.github/nightly-notes.jq`). Every nightly stays on the releases page. Both
