@@ -1334,10 +1334,12 @@ impl Layout {
         if message.timestamp != 0 {
             let (twelve_hour, with_seconds) = (self.twelve_hour_clock, self.clock_seconds);
             let now = votecord_core::clock::now_ms() / 1000;
-            let sent = votecord_core::clock::sent(message.timestamp, now, twelve_hour, with_seconds);
+            let sent =
+                votecord_core::clock::sent(message.timestamp, now, twelve_hour, with_seconds);
             // The gutter beside a grouped message is narrow, so it shows only the clock time,
             // without AM and PM.
-            let time = votecord_core::clock::time_with(message.timestamp, twelve_hour, with_seconds);
+            let time =
+                votecord_core::clock::time_with(message.timestamp, twelve_hour, with_seconds);
             row.short_time = time.split_whitespace().next().unwrap_or_default().into();
             if let Some(notice) = &message.notice
                 && !message.blocked
@@ -2331,7 +2333,7 @@ impl Adapter {
                 Effect::Backend(command) => {
                     let result = match &self.backend {
                         Some(backend) => backend.send(command),
-                        None => Err(command),
+                        None => Err(Box::new(command)),
                     };
                     if let Err(command) = result {
                         self.app.backend_failed(&command);

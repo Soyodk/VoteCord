@@ -1670,7 +1670,11 @@ async fn forwards_with_the_message_added_and_refuses_what_cant_go() {
     let mut live = discord.live();
     let room = discord::room_id(FAKE_GUILD, FAKE_GENERAL);
     let latest = discord
-        .history(FAKE_GUILD, FAKE_GENERAL, votecord_discord::api::Span::Latest)
+        .history(
+            FAKE_GUILD,
+            FAKE_GENERAL,
+            votecord_discord::api::Span::Latest,
+        )
         .await
         .unwrap();
     let original = latest

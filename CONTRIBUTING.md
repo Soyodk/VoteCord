@@ -12,8 +12,8 @@ don't build the same thing. A small fix can go straight to a pull request.
 flows from `ui/*.slint` to `application/`.
 
 Nix is optional. `nix develop path:./nix` gives you the pinned toolchain and
-libraries. Without it, [Without Nix](README.md#without-nix) lists what Linux
-needs, and [Building](docs/building.md#windows) covers a native Windows build.
+libraries. Without it, the [README](README.md) lists what Linux needs, and
+[Building](docs/building.md#windows) covers a native Windows build.
 Build with the `fast` profile, and format before you check:
 
 ```sh

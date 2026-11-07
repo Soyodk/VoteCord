@@ -38,7 +38,8 @@ pub(crate) fn start(api: Arc<Api>) -> watch::Receiver<Option<Arc<Value>>> {
     tokio::spawn(async move {
         let custom = std::env::var_os("VOTECORD_DISCORD_GAMES_FILE").map(PathBuf::from);
         let isolated_cache = std::env::var_os("VOTECORD_DISCORD_GAMES_CACHE").is_some();
-        let disabled = std::env::var_os("VOTECORD_DISCORD_GAME_DETECTION").is_some_and(|v| v == "0")
+        let disabled = std::env::var_os("VOTECORD_DISCORD_GAME_DETECTION")
+            .is_some_and(|v| v == "0")
             || (crate::client::test_server().is_some() && custom.is_none() && !isolated_cache);
         if disabled || !sysinfo::IS_SUPPORTED_SYSTEM {
             shown.closed().await;

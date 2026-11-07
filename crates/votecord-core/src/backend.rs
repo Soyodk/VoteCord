@@ -40,8 +40,10 @@ impl Backend {
     }
 
     /// Return the command on failure so the application can clear pending state.
-    pub fn send(&self, command: Command) -> Result<(), Command> {
-        self.commands.send(command).map_err(|error| error.0)
+    pub fn send(&self, command: Command) -> Result<(), Box<Command>> {
+        self.commands
+            .send(command)
+            .map_err(|error| Box::new(error.0))
     }
 }
 
@@ -65,7 +67,7 @@ mod tests {
         });
         assert!(matches!(
             backend.send(Command::Logout),
-            Err(Command::Logout)
+            Err(command) if matches!(*command, Command::Logout)
         ));
     }
 }

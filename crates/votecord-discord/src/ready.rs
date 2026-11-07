@@ -1416,9 +1416,11 @@ pub fn animated_banners() -> bool {
 /// Nitro setting shows it, else the still PNG Discord keeps beside every
 /// animated one.
 fn banner_file(hash: &str) -> &'static str {
-    (hash.starts_with("a_") && animated_banners())
-        .then_some("gif")
-        .unwrap_or("png")
+    if hash.starts_with("a_") && animated_banners() {
+        "gif"
+    } else {
+        "png"
+    }
 }
 
 /// Discord's media proxy, or the test server.

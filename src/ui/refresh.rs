@@ -3097,8 +3097,7 @@ impl Adapter {
             .iter()
             .enumerate()
             .filter(|(_, command)| {
-                picking
-                    && (query.is_empty() || command.name.to_lowercase().starts_with(&query))
+                picking && (query.is_empty() || command.name.to_lowercase().starts_with(&query))
             })
             .take(COMMAND_SUGGESTIONS)
             .map(|(index, command)| {
@@ -3158,7 +3157,7 @@ impl Adapter {
         // that changed none of it rebuilds nothing.
         let version = commands
             .as_ref()
-            .map(|commands| std::sync::Arc::as_ptr(commands) as usize)
+            .map(|commands| std::sync::Arc::as_ptr(commands).cast::<()>() as usize)
             .unwrap_or(0);
         let shown = (
             room.clone().unwrap_or_default(),

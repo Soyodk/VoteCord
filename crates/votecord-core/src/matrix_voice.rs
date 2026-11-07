@@ -646,9 +646,9 @@ async fn device_problem(
     };
     match client.encryption().get_device(&user, device.into()).await {
         Ok(Some(device)) if device.is_cross_signed_by_owner() => None,
-        Ok(Some(_)) => {
-            Some("Unverified device. It can't receive your audio key, and Votecord refuses its key.")
-        }
+        Ok(Some(_)) => Some(
+            "Unverified device. It can't receive your audio key, and Votecord refuses its key.",
+        ),
         _ => Some("Unknown device; your audio key may not reach it."),
     }
 }

@@ -230,8 +230,8 @@ remaps source paths, so a binary people download names no folder of this
 machine ([Building](building.md#windows)). Source it the same way before any
 Windows binary you hand to someone.
 
-A [one-line WebRTC patch](../vendor/webrtc-sys/README.votecord.md) also fixes an
-MSVC class/struct declaration mismatch, matching the upstream resolution.
+A [one-line WebRTC patch](building.md#dependency-sources) also fixes an MSVC
+class/struct declaration mismatch, matching the upstream resolution.
 
 The package contains dependency notices, original licenses and build hashes.
 The source snapshot, `Votecord-VERSION-source.zip` (the full preview's

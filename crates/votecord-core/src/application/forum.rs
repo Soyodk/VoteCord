@@ -8,7 +8,10 @@
 //! pages and a search's results bring their own. All of it is kept only
 //! while the forum shows.
 
-use std::{collections::HashMap, hash::{Hash, Hasher}};
+use std::{
+    collections::HashMap,
+    hash::{Hash, Hasher},
+};
 
 use super::*;
 use crate::chat::{ForumTag, ListedThread, PostStarter, PostStarters};

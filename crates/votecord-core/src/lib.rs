@@ -138,9 +138,12 @@ fn check_opus() {
             [sample, sample]
         })
         .collect();
-    let mut encoder =
-        votecord_discord::opus::Encoder::new(2, votecord_discord::opus::Application::Audio, 128_000)
-            .expect("an Opus encoder");
+    let mut encoder = votecord_discord::opus::Encoder::new(
+        2,
+        votecord_discord::opus::Application::Audio,
+        128_000,
+    )
+    .expect("an Opus encoder");
     let mut decoder = votecord_discord::opus::Decoder::new(2).expect("an Opus decoder");
     let mut packet = [0u8; 4000];
     let mut decoded = vec![0i16; FRAME * 2];

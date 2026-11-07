@@ -484,8 +484,7 @@ impl Animations {
         i_slint_core::votecord_emoji::set_playing(playing);
         self.side = frame_side(window.window().scale_factor());
         let waiting = !self.decoding.is_empty()
-            || (playing
-                && (self.queue.len() > 0 || !i_slint_core::votecord_emoji::is_empty()));
+            || (playing && (self.queue.len() > 0 || !i_slint_core::votecord_emoji::is_empty()));
         if !waiting {
             self.timer.stop();
             self.interval = 0;
@@ -683,7 +682,10 @@ mod tests {
         cache.insert("b".to_owned(), Some('b'), small(1));
         cache.pin(["b"]);
         cache.evict_to(0);
-        assert!(!cache.contains("b"), "the hard budget also applies to visible emoji");
+        assert!(
+            !cache.contains("b"),
+            "the hard budget also applies to visible emoji"
+        );
         assert!(cache.is_still("b"), "do not decode it again every refresh");
         assert!(!cache.contains("a"));
         assert_eq!(cache.bytes(), 0);
@@ -756,7 +758,10 @@ mod tests {
         registry::insert(
             key,
             Some(glyph),
-            Rc::new(registry::Animation::new(vec![slint::Image::default()], &[40])),
+            Rc::new(registry::Animation::new(
+                vec![slint::Image::default()],
+                &[40],
+            )),
         );
         let mut cache = Cache::new();
         cache.still(key);

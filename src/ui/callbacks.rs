@@ -166,7 +166,12 @@ pub(super) fn custom_keys_without_pictures(
 
 /// Gives the picker's grid the emoji `query` finds, `columns` to a row, and
 /// fetches the pictures of the custom emoji it shows.
-fn show_emoji(adapter: &Rc<RefCell<Adapter>>, window: &VotecordWindow, query: &str, columns: usize) {
+fn show_emoji(
+    adapter: &Rc<RefCell<Adapter>>,
+    window: &VotecordWindow,
+    query: &str,
+    columns: usize,
+) {
     let mut adapter = adapter.borrow_mut();
     let (rows, sections) = {
         let custom = adapter.app.emoji_sets();
@@ -1931,10 +1936,10 @@ pub(super) fn bind_callbacks(window: &VotecordWindow, adapter: &Rc<RefCell<Adapt
             adapter.slash_word = slash;
             window.set_command_index(0);
         }
-        if text.starts_with('/') {
-            if let Some(room) = adapter.app.state.selected.clone() {
-                adapter.action(&window, Action::SlashCommands(room));
-            }
+        if text.starts_with('/')
+            && let Some(room) = adapter.app.state.selected.clone()
+        {
+            adapter.action(&window, Action::SlashCommands(room));
         }
     });
     let state = adapter.clone();

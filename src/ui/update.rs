@@ -52,10 +52,10 @@ fn schedule(adapter: &Rc<RefCell<Adapter>>, at: std::time::Duration) {
     // A weak holds the cycle, which the timer itself lives in: a strong one
     // would keep the adapter forever.
     let state = Rc::downgrade(adapter);
-    adapter.borrow_mut().update_timer.start(
-        slint::TimerMode::SingleShot,
-        at,
-        move || {
+    adapter
+        .borrow_mut()
+        .update_timer
+        .start(slint::TimerMode::SingleShot, at, move || {
             let Some(adapter) = state.upgrade() else {
                 return;
             };
@@ -75,8 +75,7 @@ fn schedule(adapter: &Rc<RefCell<Adapter>>, at: std::time::Duration) {
                 check(runtime, window);
             }
             schedule(&adapter, CHECK_AGAIN);
-        },
-    );
+        });
 }
 
 /// Asks for the newest release and, when it is newer than this build and not
@@ -99,9 +98,8 @@ fn check(runtime: Arc<BackgroundRuntime>, window: slint::Weak<VotecordWindow>) {
             let newer = update_newer(&version, env!("CARGO_PKG_VERSION"));
             let dismissed = window.get_update_dismissed_version();
             if newer && dismissed != version {
-                let url = installer(&release).map_or_else(String::new, |asset| {
-                    asset.browser_download_url.clone()
-                });
+                let url = installer(&release)
+                    .map_or_else(String::new, |asset| asset.browser_download_url.clone());
                 window.set_update_asset(url.into());
                 window.set_update_version(version.into());
             } else if !newer {
@@ -121,7 +119,8 @@ async fn latest_release() -> anyhow::Result<Release> {
         .build()
         .context("could not set up HTTPS")?;
     let release: Release = serde_json::from_str(
-        &http.get(RELEASES)
+        &http
+            .get(RELEASES)
             .header("Accept", "application/vnd.github+json")
             .send()
             .await
@@ -146,22 +145,30 @@ fn update_newer(latest: &str, current: &str) -> bool {
         let core = version.split(['-', '+']).next()?;
         let mut parts = core.split('.');
         let number = |part: Option<&str>| part?.parse::<u64>().ok();
-        Some((number(parts.next())?, number(parts.next())?, number(parts.next())?))
+        Some((
+            number(parts.next())?,
+            number(parts.next())?,
+            number(parts.next())?,
+        ))
     };
-    let (Some(latest), Some(current)) = (numbers(latest), numbers(current)) else {
+    let (Some(latest_numbers), Some(current_numbers)) = (numbers(latest), numbers(current)) else {
         return false;
     };
-    if latest != current {
-        return latest > current;
+    if latest_numbers != current_numbers {
+        return latest_numbers > current_numbers;
     }
     // What follows the numbers: a release has nothing there and a prerelease
     // is always under one, so only two prereleases go on to their parts.
-    let pre = |version: &str| version.split(['-', '+']).nth(1);
-    let (Some(latest), Some(current)) = (pre(latest), pre(current)) else {
-        return pre(latest).is_none() && pre(current).is_some();
+    fn prerelease(version: &str) -> Option<&str> {
+        version
+            .split_once('-')
+            .map(|(_, pre)| pre.split('+').next().unwrap_or(pre))
+    }
+    let (Some(latest_pre), Some(current_pre)) = (prerelease(latest), prerelease(current)) else {
+        return prerelease(latest).is_none() && prerelease(current).is_some();
     };
     let parts = |version: &str| version.split('.').map(String::from).collect::<Vec<_>>();
-    let (latest, current) = (parts(latest), parts(current));
+    let (latest, current) = (parts(latest_pre), parts(current_pre));
     for index in 0..latest.len().max(current.len()) {
         match (latest.get(index), current.get(index)) {
             (None, None) => break,
@@ -227,7 +234,7 @@ pub(super) fn start_download(adapter: &Rc<RefCell<Adapter>>) {
             };
             window.set_update_downloading(false);
             match downloaded {
-                Ok(()) => {
+                Ok(_) => {
                     // The installer replaces this program, which mustn't be
                     // running when it does.
                     let _ = slint::quit_event_loop();
@@ -262,7 +269,8 @@ async fn download(url: &str) -> anyhow::Result<std::path::PathBuf> {
     let mut file = std::fs::File::create(&path).context("could not write the installer")?;
     while let Some(chunk) = response.chunk().await.context("the download broke")? {
         use std::io::Write;
-        file.write_all(&chunk).context("could not write the installer")?;
+        file.write_all(&chunk)
+            .context("could not write the installer")?;
     }
     file.sync_all().ok();
     drop(file);
@@ -273,4 +281,35 @@ async fn download(url: &str) -> anyhow::Result<std::path::PathBuf> {
         .context("could not start the installer")?;
     tracing::info!(?path, child = child.id(), "the update installer started");
     Ok(path)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::update_newer;
+
+    #[test]
+    fn orders_core_versions_and_stable_releases() {
+        assert!(update_newer("1.10.0", "1.9.9"));
+        assert!(update_newer("1.0.0", "1.0.0-rc.1"));
+        assert!(!update_newer("1.0.0-rc.1", "1.0.0"));
+        assert!(!update_newer("1.0.0", "1.0.0"));
+    }
+
+    #[test]
+    fn orders_prerelease_identifiers_by_semver_rules() {
+        assert!(update_newer("1.0.0-alpha.10", "1.0.0-alpha.2"));
+        assert!(update_newer("1.0.0-alpha.2", "1.0.0-alpha"));
+        assert!(update_newer("1.0.0-alpha", "1.0.0-2"));
+        assert!(!update_newer("1.0.0-2", "1.0.0-alpha"));
+    }
+
+    #[test]
+    fn compares_nightly_versions_and_ignores_build_metadata() {
+        assert!(update_newer(
+            "0.4.0-nightly.20261107.1",
+            "0.4.0-nightly.20261106.9"
+        ));
+        assert!(!update_newer("1.0.0+build.2", "1.0.0+build.1"));
+        assert!(!update_newer("1.0.0-alpha+build.2", "1.0.0-alpha+build.1"));
+    }
 }

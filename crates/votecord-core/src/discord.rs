@@ -366,11 +366,12 @@ impl Index {
                 .into_iter()
                 .map(|indexed| (indexed.source.id.clone(), indexed))
                 .collect();
-        let folders: std::collections::HashMap<&str, &votecord_discord::settings::Folder> = snapshot
-            .folders
-            .iter()
-            .flat_map(|folder| folder.servers.iter().map(move |id| (id.as_str(), folder)))
-            .collect();
+        let folders: std::collections::HashMap<&str, &votecord_discord::settings::Folder> =
+            snapshot
+                .folders
+                .iter()
+                .flat_map(|folder| folder.servers.iter().map(move |id| (id.as_str(), folder)))
+                .collect();
         for server in &snapshot.servers {
             let folder = folders
                 .get(server.id.as_str())
@@ -1182,7 +1183,9 @@ async fn download(
                 lock().succeeded();
                 return Some(data);
             }
-            Err(error) if tries < PICTURE_TRIES && votecord_discord::api::may_work_later(&error) => {
+            Err(error)
+                if tries < PICTURE_TRIES && votecord_discord::api::may_work_later(&error) =>
+            {
                 tracing::debug!(%error, %url, tries, "will download a Discord picture again");
                 lock().failed(started, Instant::now());
             }

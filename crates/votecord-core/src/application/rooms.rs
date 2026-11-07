@@ -783,7 +783,12 @@ impl Application {
             &mut self.requested_pictures,
             &mut self.state.picture_changes,
         );
-        for view in self.state.profile.iter_mut().chain(&mut self.state.panel_profile) {
+        for view in self
+            .state
+            .profile
+            .iter_mut()
+            .chain(&mut self.state.panel_profile)
+        {
             retarget(&mut view.profile.banner, gifs, pictures, requested, changes);
         }
         for own in self
@@ -809,9 +814,9 @@ impl Application {
         {
             return vec![];
         }
-        vec![Effect::Backend(Command::Discord(DiscordCommand::SlashIndex {
-            room,
-        }))]
+        vec![Effect::Backend(Command::Discord(
+            DiscordCommand::SlashIndex { room },
+        ))]
     }
 
     pub(super) fn select(&mut self, id: String) -> Vec<Effect> {

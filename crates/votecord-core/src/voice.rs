@@ -440,8 +440,9 @@ impl Controller {
                     ),
                     Err(_) => {
                         states.send_modify(|state| {
-                            state.error =
-                                Some("Could not start voice. Restart Votecord and try again.".into())
+                            state.error = Some(
+                                "Could not start voice. Restart Votecord and try again.".into(),
+                            )
                         });
                     }
                 }

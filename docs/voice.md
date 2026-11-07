@@ -299,10 +299,10 @@ the physical microphone or change the system's default devices. It covers a
 directions, mute, deafen, undeafen staying muted and clean leave. It also
 stalls authorization after membership publication, cancels with Leave, checks
 membership removal and then joins again. The two clients run in separate
-processes because LiveKit shares its audio engine within a process. The [pinned
-dependency patch](../vendor/matrix-rtc-livekit/README.votecord.md) reuses the
-SDK's active-index handling, so native tracks first published after a key
-rotation don't carry stale key indices. The call experiment
+processes because LiveKit shares its audio engine within a process. The
+[pinned dependency](building.md#dependency-sources) reuses the SDK's
+active-index handling, so native tracks first published after a key rotation
+don't carry stale key indices. The call experiment
 (`--call-experiment`) separately covers recovery, invalid keys and departure
 key rotation. Release performance remains unverified.
 

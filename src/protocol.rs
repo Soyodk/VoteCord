@@ -315,7 +315,9 @@ mod windows {
 
         #[test]
         fn recognises_its_own_registered_command() {
-            assert!(is_ours(r#""C:\Apps\Votecord\votecord.exe" --open-link "%1""#));
+            assert!(is_ours(
+                r#""C:\Apps\Votecord\votecord.exe" --open-link "%1""#
+            ));
             assert!(is_ours(r#""C:\Apps\Votecord\votecord.exe" "%1""#));
             assert!(!is_ours(r#""C:\Apps\Discord\Discord.exe" "%1""#));
             assert_eq!(

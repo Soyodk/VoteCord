@@ -279,6 +279,7 @@ mod linux {
 
     use anyhow::{Context, Result, anyhow, bail};
     use futures_util::StreamExt;
+    use votecord_core::runtime::{BackgroundRuntime, BackgroundTask};
     use x11rb::{
         connection::Connection as _,
         protocol::{
@@ -288,7 +289,6 @@ mod linux {
         },
         rust_connection::RustConnection,
     };
-    use votecord_core::runtime::{BackgroundRuntime, BackgroundTask};
     use zbus::{
         Connection, MessageStream,
         zvariant::{ObjectPath, OwnedObjectPath, OwnedValue, Value},
