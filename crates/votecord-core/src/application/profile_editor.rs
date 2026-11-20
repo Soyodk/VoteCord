@@ -8,6 +8,7 @@
 
 use super::*;
 use crate::chat::{OwnProfile, Permission, PickedPicture, ProfileChange, ProfilePicture};
+use crate::profile_links::{self, LINKS_LIMIT, LinkProblem, ProfileLink};
 
 /// The longest name, pronouns and bio Discord takes, in characters: a
 /// server nickname and a display name alike.
@@ -45,6 +46,16 @@ pub enum PictureEdit {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct NotAColour;
 
+/// The fields of a link being written: a new one, or the one at `index`
+/// being changed.
+#[derive(Clone, Debug, Default)]
+pub struct LinkForm {
+    /// The link being changed; none while it's a new one.
+    pub index: Option<usize>,
+    pub label: String,
+    pub url: String,
+}
+
 /// The editor of this account's profile.
 #[derive(Clone, Debug, Default)]
 pub struct ProfileEditor {
@@ -61,6 +72,14 @@ pub struct ProfileEditor {
     pub colour: String,
     pub avatar: PictureEdit,
     pub banner: PictureEdit,
+    /// The buttons under the bio, as this account set them: Discord has no
+    /// field for them, so they're this device's; see
+    /// [`crate::profile_links`]. Only the main profile has them.
+    pub links: Vec<ProfileLink>,
+    /// The links as they were when the editor opened, or as last saved.
+    pub links_saved: Vec<ProfileLink>,
+    /// A link being written, in a form under the list.
+    pub link_form: Option<LinkForm>,
     /// A picture being read, for the avatar or the banner.
     pub reading: Option<(ProfilePicture, PathBuf)>,
     /// Whether this account may change its nickname in the server.
@@ -115,6 +134,26 @@ impl ProfileEditor {
         match kind {
             ProfilePicture::Avatar => self.main() || self.nitro(),
             ProfilePicture::Banner => self.nitro(),
+        }
+    }
+
+    /// Whether it may change the links: they're this device's, and only the
+    /// main profile has them, as Discord's connections are Discord's own.
+    pub fn may_link(&self) -> bool {
+        self.main() && !self.saving
+    }
+
+    /// Whether the links differ from what's saved.
+    pub fn links_changed(&self) -> bool {
+        self.links != self.links_saved
+    }
+
+    /// Whether one more link fits, and what to say when it doesn't.
+    pub fn link_room(&self) -> Result<(), LinkProblem> {
+        if self.links.len() < LINKS_LIMIT {
+            Ok(())
+        } else {
+            Err(LinkProblem::Full)
         }
     }
 
@@ -225,8 +264,16 @@ impl Application {
         if self.state.discord_user.is_none() {
             return vec![];
         }
+        let links = self
+            .state
+            .discord_user
+            .as_deref()
+            .map(profile_links::load)
+            .unwrap_or_default();
         self.state.profile_editor = Some(ProfileEditor {
             premium: self.premium_type(),
+            links_saved: links.clone(),
+            links,
             ..Default::default()
         });
         vec![Effect::Backend(Command::Discord(
@@ -318,6 +365,124 @@ impl Application {
                 ProfileText::Colour => &mut editor.colour,
             } = text;
         }
+    }
+
+    /// Opens the form that writes a link: a new one, by -1, or the one at
+    /// `index` as it stands.
+    pub(super) fn edit_profile_link(&mut self, index: i32) {
+        let Some(editor) = self
+            .state
+            .profile_editor
+            .as_mut()
+            .filter(|editor| editor.may_link() && editor.profile.is_some())
+        else {
+            return;
+        };
+        if index < 0 {
+            if let Err(problem) = editor.link_room() {
+                editor.error = Some(problem.message().to_owned());
+                return;
+            }
+            editor.link_form = Some(LinkForm::default());
+        } else {
+            let Some(index) = usize::try_from(index)
+                .ok()
+                .filter(|index| *index < editor.links.len())
+            else {
+                return;
+            };
+            let (label, url) = {
+                let link = &editor.links[index];
+                (link.label.clone(), link.url.clone())
+            };
+            editor.link_form = Some(LinkForm {
+                index: Some(index),
+                label,
+                url,
+            });
+        }
+        editor.error = None;
+    }
+
+    /// Writes the link form's label, by 0, or its address.
+    pub(super) fn write_profile_link(&mut self, field: i32, text: String) {
+        let Some(editor) = self.state.profile_editor.as_mut() else {
+            return;
+        };
+        let Some(form) = editor.link_form.as_mut() else {
+            return;
+        };
+        *if field == 0 {
+            &mut form.label
+        } else {
+            &mut form.url
+        } = text;
+        editor.error = None;
+    }
+
+    /// Adds the link the form writes, or puts it in the place of the one
+    /// it changes.
+    pub(super) fn commit_profile_link(&mut self) {
+        let Some(editor) = self
+            .state
+            .profile_editor
+            .as_mut()
+            .filter(|editor| editor.may_link())
+        else {
+            return;
+        };
+        let Some(form) = editor.link_form.as_ref() else {
+            return;
+        };
+        let (index, label, url) = (form.index, form.label.clone(), form.url.clone());
+        let link = match profile_links::check(&label, &url) {
+            Ok(link) => link,
+            Err(problem) => {
+                editor.error = Some(problem.message().to_owned());
+                return;
+            }
+        };
+        match index.filter(|index| *index < editor.links.len()) {
+            Some(index) => editor.links[index] = link,
+            None => {
+                if let Err(problem) = editor.link_room() {
+                    editor.error = Some(problem.message().to_owned());
+                    return;
+                }
+                editor.links.push(link);
+            }
+        }
+        editor.link_form = None;
+        editor.error = None;
+    }
+
+    /// Closes the link form, keeping what the links were.
+    pub(super) fn cancel_profile_link(&mut self) {
+        if let Some(editor) = self.state.profile_editor.as_mut() {
+            editor.link_form = None;
+            editor.error = None;
+        }
+    }
+
+    /// Takes the link at `index` off the profile.
+    pub(super) fn remove_profile_link(&mut self, index: i32) {
+        let Some(editor) = self
+            .state
+            .profile_editor
+            .as_mut()
+            .filter(|editor| editor.may_link())
+        else {
+            return;
+        };
+        let Some(index) = usize::try_from(index)
+            .ok()
+            .filter(|index| *index < editor.links.len())
+        else {
+            return;
+        };
+        editor.links.remove(index);
+        editor.link_form = None;
+        editor.error = None;
     }
 
     /// Reads a picture chosen for the avatar or banner.
@@ -415,17 +580,16 @@ impl Application {
         editor.colour = colour_text(profile.accent);
         editor.avatar = PictureEdit::Keep;
         editor.banner = PictureEdit::Keep;
+        editor.links.clone_from(&editor.links_saved);
+        editor.link_form = None;
         editor.reading = None;
         editor.error = None;
     }
 
     pub(super) fn save_profile(&mut self) -> Vec<Effect> {
-        let Some(editor) = self
-            .state
-            .profile_editor
-            .as_mut()
-            .filter(|editor| !editor.saving && editor.reading.is_none())
-        else {
+        let Some(editor) = self.state.profile_editor.as_ref().filter(|editor| {
+            !editor.saving && editor.reading.is_none() && editor.link_form.is_none()
+        }) else {
             return vec![];
         };
         if editor.too_long().is_some()
@@ -433,16 +597,44 @@ impl Application {
         {
             return vec![];
         }
-        let Some(change) = editor.change() else {
+        let change = editor.change();
+        let links = editor.links_changed().then(|| editor.links.clone());
+        let server = editor.server.clone();
+        if change.is_none() && links.is_none() {
             // Nothing to save closes it, as nothing changed.
             self.state.profile_editor = None;
+            return vec![];
+        }
+        // The links are this device's, so they're written here, with no
+        // request, before Discord takes the rest.
+        if let Some(links) = links {
+            let account = self.state.discord_user.clone();
+            if let Some(account) = account.as_deref() {
+                profile_links::save(account, links.clone());
+            }
+            if let Some(profile) = self.state.profile.as_mut().filter(|view| {
+                account
+                    .as_deref()
+                    .is_some_and(|account| view.profile.id == account)
+            }) {
+                profile.profile.links = links;
+            }
+            if let Some(editor) = self.state.profile_editor.as_mut() {
+                editor.links_saved = editor.links.clone();
+            }
+        }
+        let Some(change) = change else {
+            self.state.profile_editor = None;
+            return vec![];
+        };
+        let Some(editor) = self.state.profile_editor.as_mut() else {
             return vec![];
         };
         editor.saving = true;
         editor.error = None;
         vec![Effect::Backend(Command::Discord(
             DiscordCommand::SaveProfile {
-                server: editor.server.clone(),
+                server,
                 change: Box::new(change),
             },
         ))]

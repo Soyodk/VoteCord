@@ -7882,6 +7882,78 @@ fn the_main_profile_is_edited_as_discords_profile_editor_does() {
     assert!(matches!(&change.avatar, Some(Some(picked)) if picked.mime == "image/gif"));
     assert!(change.accent.is_none());
 }
+#[test]
+fn links_go_on_the_profile_card_as_buttons() {
+    use crate::profile_links::ProfileLink;
+    use chat::OwnProfile;
+    let mut app = discord_server();
+    app.dispatch(Action::EditProfile);
+    app.apply(Event::OwnProfile {
+        server: None,
+        result: Ok(OwnProfile {
+            name: "Alice".into(),
+            fallback: chat::Profile {
+                name: "alice".into(),
+                ..Default::default()
+            },
+            ..Default::default()
+        }),
+    });
+    // A new link: the form takes a label and an address, and the address
+    // takes the scheme it lacks.
+    assert!(app.dispatch(Action::EditProfileLink(-1)).is_empty());
+    app.dispatch(Action::WriteProfileLink {
+        field: 0,
+        text: " My site ".into(),
+    });
+    app.dispatch(Action::WriteProfileLink {
+        field: 1,
+        text: "example.com/me".into(),
+    });
+    app.dispatch(Action::CommitProfileLink);
+    let editor = app.state.profile_editor.as_ref().unwrap();
+    assert_eq!(
+        editor.links,
+        [ProfileLink {
+            label: "My site".into(),
+            url: "https://example.com/me".into()
+        }]
+    );
+    assert!(editor.link_form.is_none() && editor.links_changed());
+    assert!(editor.change().is_none(), "Discord has no field for them");
+    // What isn't an address keeps the form open, saying what's wrong, and
+    // leaves the list as it was.
+    app.dispatch(Action::EditProfileLink(-1));
+    app.dispatch(Action::WriteProfileLink {
+        field: 0,
+        text: "Bad".into(),
+    });
+    app.dispatch(Action::WriteProfileLink {
+        field: 1,
+        text: "javascript:alert(1)".into(),
+    });
+    app.dispatch(Action::CommitProfileLink);
+    let editor = app.state.profile_editor.as_ref().unwrap();
+    assert!(editor.link_form.is_some());
+    assert_eq!(editor.links.len(), 1);
+    assert_eq!(
+        editor.error.as_deref(),
+        Some("That isn't an address: write one such as example.com/page.")
+    );
+    app.dispatch(Action::CancelProfileLink);
+    assert!(
+        app.state
+            .profile_editor
+            .as_ref()
+            .unwrap()
+            .link_form
+            .is_none()
+    );
+    // Saving writes no request: the links are this device's, so nothing goes
+    // to Discord, and the editor closes.
+    assert!(app.dispatch(Action::SaveProfile).is_empty());
+    assert!(app.state.profile_editor.is_none());
+}
 
 #[test]
 #[cfg(feature = "discord")]

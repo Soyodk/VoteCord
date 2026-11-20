@@ -4906,6 +4906,81 @@ fn edit_server_profile_opens_the_per_server_profile_editor() {
 
 #[test]
 #[cfg(feature = "discord")]
+fn the_profile_editor_writes_links_as_buttons() {
+    use slint::Model;
+    let (window, adapter, _directory) = discord_server_window_granting(0);
+    window.invoke_edit_profile();
+    {
+        let mut adapter = adapter.borrow_mut();
+        adapter.app.apply(Event::OwnProfile {
+            server: None,
+            result: Ok(votecord_core::chat::OwnProfile {
+                name: "Alice".into(),
+                fallback: votecord_core::chat::Profile {
+                    name: "alice".into(),
+                    handle: "alice".into(),
+                    ..Default::default()
+                },
+                ..Default::default()
+            }),
+        });
+        adapter.refresh(&window);
+    }
+    let prompt = window.get_profile_editor_prompt();
+    assert!(prompt.main && prompt.links_enabled && prompt.links_room);
+    assert_eq!(prompt.links.row_count(), 0, "none yet");
+
+    // Add link opens the form; what it writes becomes a button, its address
+    // taking the scheme it lacks.
+    window.invoke_edit_profile_link(-1);
+    assert!(window.get_profile_editor_prompt().link_form);
+    window.invoke_write_profile_link(0, "My site".into());
+    window.invoke_write_profile_link(1, "example.com".into());
+    window.invoke_commit_profile_link();
+    let prompt = window.get_profile_editor_prompt();
+    assert!(!prompt.link_form);
+    assert_eq!(prompt.links.row_count(), 1);
+    let link = prompt.links.row_data(0).unwrap();
+    assert_eq!(
+        (link.label.as_str(), link.url.as_str()),
+        ("My site", "https://example.com")
+    );
+    assert!(prompt.changed, "the bar asks to save it");
+    assert_eq!(prompt.preview.links.row_count(), 1, "the card shows it");
+
+    // A second one, then the first goes.
+    window.invoke_edit_profile_link(-1);
+    window.invoke_write_profile_link(0, "Blog".into());
+    window.invoke_write_profile_link(1, "blog.example.org".into());
+    window.invoke_commit_profile_link();
+    assert_eq!(window.get_profile_editor_prompt().links.row_count(), 2);
+    window.invoke_remove_profile_link(0);
+    let prompt = window.get_profile_editor_prompt();
+    assert_eq!(prompt.links.row_count(), 1);
+    assert_eq!(
+        prompt.links.row_data(0).unwrap().label.as_str(),
+        "Blog",
+        "the other stays"
+    );
+
+    // What isn't an address keeps the form open, saying what's wrong.
+    window.invoke_edit_profile_link(-1);
+    window.invoke_write_profile_link(0, "Bad".into());
+    window.invoke_write_profile_link(1, "javascript:alert(1)".into());
+    window.invoke_commit_profile_link();
+    let prompt = window.get_profile_editor_prompt();
+    assert!(prompt.link_form);
+    assert_eq!(
+        prompt.link_error.as_str(),
+        "That isn't an address: write one such as example.com/page."
+    );
+    window.invoke_cancel_profile_link();
+    assert!(!window.get_profile_editor_prompt().link_form);
+    assert_eq!(window.get_profile_editor_prompt().links.row_count(), 1);
+}
+
+#[test]
+#[cfg(feature = "discord")]
 fn server_settings_open_from_the_menu_and_hold_their_changes_until_saved() {
     use slint::Model;
     use votecord_core::{

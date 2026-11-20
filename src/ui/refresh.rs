@@ -2223,6 +2223,22 @@ impl Adapter {
                 get_profile_editor_colour,
                 set_profile_editor_colour
             );
+            // The form's fields empty when it closes, and hold what it writes
+            // while it's open.
+            let (link_label, link_url) = editor.link_form.as_ref().map_or_else(
+                || (String::new(), String::new()),
+                |form| (form.label.clone(), form.url.clone()),
+            );
+            follow!(
+                link_label,
+                get_profile_editor_link_label,
+                set_profile_editor_link_label
+            );
+            follow!(
+                link_url,
+                get_profile_editor_link_url,
+                set_profile_editor_link_url
+            );
         }
         let Some(editor) = editor else {
             // Its pictures go with it.
@@ -2274,6 +2290,7 @@ impl Adapter {
                 bio: written(&editor.bio, fallback.map(|fallback| &fallback.bio)),
                 created: fallback.and_then(|fallback| fallback.created.clone()),
                 joined: fallback.and_then(|fallback| fallback.joined.clone()),
+                links: editor.links.clone(),
                 ..Default::default()
             },
             large: false,
@@ -2362,7 +2379,42 @@ impl Adapter {
             reading: reading.into(),
             bio_left: i32::try_from(left).unwrap_or(i32::MIN),
             too_long: too_long.into(),
-            changed: editor.change().is_some(),
+            links: ModelRc::new(VecModel::from(
+                editor
+                    .links
+                    .iter()
+                    .map(|link| ProfileLinkRow {
+                        label: link.label.as_str().into(),
+                        url: link.url.as_str().into(),
+                    })
+                    .collect::<Vec<_>>(),
+            )),
+            links_enabled: editor.may_link(),
+            links_room: editor.link_room().is_ok(),
+            link_form: editor.link_form.is_some(),
+            link_index: editor
+                .link_form
+                .as_ref()
+                .and_then(|form| form.index)
+                .and_then(|index| i32::try_from(index).ok())
+                .unwrap_or(-1),
+            link_label: editor
+                .link_form
+                .as_ref()
+                .map(|form| form.label.as_str())
+                .unwrap_or_default()
+                .into(),
+            link_url: editor
+                .link_form
+                .as_ref()
+                .map(|form| form.url.as_str())
+                .unwrap_or_default()
+                .into(),
+            link_error: match (editor.link_form.is_some(), editor.error.as_deref()) {
+                (true, Some(error)) => error.into(),
+                _ => Default::default(),
+            },
+            changed: editor.change().is_some() || editor.links_changed(),
             preview,
         });
     }

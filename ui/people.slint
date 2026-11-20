@@ -110,6 +110,8 @@ export struct ProfileServerRow {
 }
 /// A friend a profile's person shares with this account; presence as in MemberRow.
 export struct ProfileFriendRow { id: string, name: string, initial: string, tint: color, picture: image, presence: string }
+/// A button under a profile's bio: what it says, and the address it opens.
+export struct ProfileLinkRow { label: string, url: string }
 /// One of someone's activities, as their profile's card shows it.
 export struct ActivityRow {
     /// "PLAYING", "LISTENING TO SPOTIFY" and the like.
@@ -145,6 +147,8 @@ export struct ProfileData {
     /// What they're doing, in full: games, music, streams.
     activities: [ActivityRow],
     bio: styled-text, has-bio: bool,
+    /// The buttons this account put under its bio; see profile_links.rs.
+    links: [ProfileLinkRow],
     role-rows: [ProfileRoleRow], role-rows-large: [ProfileRoleRow],
     /// Dates: on Discord since, and in this server since.
     created: string, joined: string,
@@ -508,6 +512,41 @@ export component ProfileCard inherits Rectangle {
                                     text: root.data.bio; default-color: Theme.text; link-color: Theme.link;
                                     link-clicked(link) => { root.open-link(link); }
                                 }
+                            }
+                        }
+                    }
+                    // The buttons this account chose to show under its bio.
+                    // Discord has no field for them, so they're Votecord's
+                    // own, kept on this device; see profile_links.rs.
+                    if root.data.links.length > 0: VerticalLayout {
+                        spacing: 6px;
+                        ProfileHeading { text: "LINKS"; }
+                        for link in root.data.links: Rectangle {
+                            height: 40px; border-radius: 8px;
+                            background: link-touch.has-hover ? Theme.raised : Theme.sunken;
+                            border-width: 1px; border-color: Theme.line;
+                            accessible-role: button;
+                            accessible-label: "Open " + link.label + ", " + link.url;
+                            accessible-action-default => { root.open-link(link.url); }
+                            HorizontalLayout {
+                                padding-left: 12px; padding-right: 12px; spacing: 10px;
+                                VerticalLayout {
+                                    alignment: center;
+                                    Image { source: @image-url("icons/link.svg"); width: 16px; height: 16px; colorize: Theme.accent; }
+                                }
+                                VerticalLayout {
+                                    alignment: center; horizontal-stretch: 1; spacing: 1px;
+                                    Text { text: link.label; color: Theme.text; font-size: 14px; font-weight: 600; overflow: elide; }
+                                    Text { text: link.url; color: Theme.muted; font-size: 12px; overflow: elide; }
+                                }
+                                VerticalLayout {
+                                    alignment: center;
+                                    Image { source: @image-url("icons/external-link.svg"); width: 14px; height: 14px; colorize: Theme.faint; }
+                                }
+                            }
+                            link-touch := TouchArea {
+                                mouse-cursor: MouseCursor.pointer;
+                                clicked => { root.open-link(link.url); }
                             }
                         }
                     }

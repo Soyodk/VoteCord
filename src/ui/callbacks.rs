@@ -727,6 +727,10 @@ pub(super) fn bind_callbacks(window: &VotecordWindow, adapter: &Rc<RefCell<Adapt
     bind!(on_undo_profile, Action::UndoProfileEdits);
     bind!(on_save_profile, Action::SaveProfile);
     bind!(on_close_profile_editor, Action::CloseProfileEditor);
+    bind_item!(on_edit_profile_link, Action::EditProfileLink);
+    bind!(on_commit_profile_link, Action::CommitProfileLink);
+    bind!(on_cancel_profile_link, Action::CancelProfileLink);
+    bind_item!(on_remove_profile_link, Action::RemoveProfileLink);
     bind!(on_unlock_nitro, Action::UnlockNitro);
     let profile_picture = |kind: i32| {
         if kind == 1 {
@@ -764,6 +768,21 @@ pub(super) fn bind_callbacks(window: &VotecordWindow, adapter: &Rc<RefCell<Adapt
                 adapter
                     .borrow_mut()
                     .action(&window, Action::ResetProfilePicture(profile_picture(kind)));
+            }
+        });
+    }
+    {
+        let adapter = adapter.clone();
+        let weak = window.as_weak();
+        window.on_write_profile_link(move |field, text| {
+            if let Some(window) = weak.upgrade() {
+                adapter.borrow_mut().action(
+                    &window,
+                    Action::WriteProfileLink {
+                        field,
+                        text: text.into(),
+                    },
+                );
             }
         });
     }

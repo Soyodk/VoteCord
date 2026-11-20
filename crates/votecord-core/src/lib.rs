@@ -65,6 +65,7 @@ pub mod noise;
 pub mod picture;
 #[cfg(feature = "discord")]
 pub mod playback;
+pub mod profile_links;
 pub mod push_to_talk;
 #[cfg(feature = "discord")]
 pub mod ring;
@@ -103,11 +104,12 @@ pub fn default_directory() -> anyhow::Result<std::path::PathBuf> {
 }
 
 /// Keeps the cookies Discord sets, and the account as last seen, in `root`
-/// across restarts.
+/// across restarts, and the links this account put on its profile.
 #[cfg(feature = "discord")]
 pub fn keep_discord_files(root: &std::path::Path) {
     votecord_discord::cookies::keep_in(root.join("discord-cookies.json"));
     votecord_discord::cache::keep_in(root.join("discord-account.json"));
+    profile_links::keep_in(profile_links::file_in(root));
 }
 
 /// Check linked native services without a session, network request or audio device.

@@ -1848,6 +1848,17 @@ pub enum Action {
     /// Undo every change in the profile editor, as its bar's Reset does.
     UndoProfileEdits,
     SaveProfile,
+    /// Open the form that writes a link on the profile card, for a new one
+    /// by -1 or the one at an index; write its label, by 0, or its address;
+    /// add it; close it; or take the link at an index off.
+    EditProfileLink(i32),
+    WriteProfileLink {
+        field: i32,
+        text: String,
+    },
+    CommitProfileLink,
+    CancelProfileLink,
+    RemoveProfileLink(i32),
     UnlockNitro,
     CloseProfileEditor,
     /// Open a Discord server's settings, by its server id or one of its
@@ -3045,6 +3056,26 @@ impl Application {
                 vec![]
             }
             Action::SaveProfile => self.save_profile(),
+            Action::EditProfileLink(index) => {
+                self.edit_profile_link(index);
+                vec![]
+            }
+            Action::WriteProfileLink { field, text } => {
+                self.write_profile_link(field, text);
+                vec![]
+            }
+            Action::CommitProfileLink => {
+                self.commit_profile_link();
+                vec![]
+            }
+            Action::CancelProfileLink => {
+                self.cancel_profile_link();
+                vec![]
+            }
+            Action::RemoveProfileLink(index) => {
+                self.remove_profile_link(index);
+                vec![]
+            }
             Action::UnlockNitro => self.unlock_nitro(),
             Action::CloseProfileEditor => {
                 self.state.profile_editor = None;

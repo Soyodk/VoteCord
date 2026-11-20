@@ -293,6 +293,8 @@ profile's](#editing-ones-server-profile)). It reads the profile with `GET
   `#rrggbb` or one of nine swatches, "Default" for none. With Nitro,
   Profile Banner, with Change Banner and Remove Banner, in its place.
 - Bio, Markdown up to 190 characters, with what's left counted under it.
+- Links, up to five buttons under the bio; see
+  [links on one's profile](#links-ones-profile).
 
 Rather than Discord's form beside a preview, the editor is the large
 profile card itself, as it will show. A pencil beside the name, the
@@ -334,6 +336,29 @@ Nitro, a profile theme of two colours in place of the banner colour, then
 the Server Tag and badges. Votecord leaves them out, as it shows none of
 them. Changing the username, in My Account with the password, is left
 for later.
+
+## Links on one's profile
+
+Discord's profile has no field for a link of one's own: the buttons a
+profile shows are the connections an application added. Votecord adds its
+own, under the bio: up to five buttons, each a label of up to 32
+characters and an address of up to 200, which open in the browser.
+`crates/votecord-core/src/profile_links.rs` keeps them, in
+`profile-links.json` in the data directory, one list per Discord account,
+readable only by this user, written whole when a list changes, as the
+cookies are. They're this device's: Discord never sees them, so they show
+on this account's own card and on no one else's, and a backup of the data
+directory keeps them.
+
+The editor's LINKS section lists them, each with a pencil and a cross, and
+Add link opens a form under the list for a label and an address. An
+address without a scheme takes `https://`, as a browser's bar does;
+anything that isn't one over HTTP or HTTPS, such as `javascript:`, is
+refused with what's wrong. Cancel closes the form and leaves the list as
+it was. The bar at the card's foot saves them with the rest of the
+profile, without a request to Discord, and the card behind the editor
+shows them once it closes. A profile takes five: Add link says so rather
+than opening the form, and the list's crosses make room.
 
 ## Editing one's server profile
 
