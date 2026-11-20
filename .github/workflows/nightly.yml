@@ -95,7 +95,15 @@ jobs:
       - run: scripts/set-version "${{ needs.version.outputs.version }}"
       # Wine doesn't start on the runner (kernel32.dll, c0000135), so Inno
       # Setup can't make the installer there.
-      - run: nix develop path:./nix#windows --command scripts/build-windows discord --no-installer
+      # Nixpkgs' cargo-xwin 0.20.2 cannot locate the x86_64 headers of the
+      # current Win11 SDK 10.0.26100 (rust-cross/cargo-xwin#176). Use the
+      # fixed upstream release for this build while keeping the rest of the
+      # pinned Nix toolchain unchanged.
+      - run: >-
+          nix develop path:./nix#windows --command bash -lc
+          'cargo install cargo-xwin --locked --version 0.23.1 --root "$RUNNER_TEMP/cargo-xwin"
+          && PATH="$RUNNER_TEMP/cargo-xwin/bin:$PATH"
+          scripts/build-windows discord --no-installer'
       - uses: actions/upload-artifact@v4
         with:
           name: windows
