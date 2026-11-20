@@ -31,7 +31,7 @@ buttons, profile-card optimizations and the Windows build fix. Nightly builds
 may contain rough edges; use the stable release when you want the most tested
 version.
 
-**Downloads:** [Windows installer](https://github.com/Soyodk/VoteCord/releases/download/v0.4.0-nightly.20261120.18/Votecord-0.4.0-nightly.20261120.18-windows-x64-setup.exe) · [Windows ZIP](https://github.com/Soyodk/VoteCord/releases/download/v0.4.0-nightly.20261120.18/Votecord-0.4.0-nightly.20261120.18-windows-x64.zip) · [Linux AppImage](https://github.com/Soyodk/VoteCord/releases/download/v0.4.0-nightly.20261120.18/Votecord-0.4.0-nightly.20261120.18-x86_64.AppImage) · [all files and checksums](https://github.com/Soyodk/VoteCord/releases/tag/v0.4.0-nightly.20261120.18)
+**Downloads:** [Windows installer](https://github.com/Soyodk/VoteCord/releases/download/v0.4.0-nightly.20261120.18/Votecord-0.4.0-nightly.20261120.18-windows-x64-setup.exe) · [Windows ZIP](https://github.com/Soyodk/VoteCord/releases/download/v0.4.0-nightly.20261120.18/Votecord-0.4.0-nightly.20261120.18-windows-x64.zip) · [Linux AppImage](https://github.com/Soyodk/VoteCord/releases/download/v0.4.0-nightly.20261120.18/Votecord-0.4.0-nightly.20261120.18-x86_64.AppImage) · [Arch package](https://github.com/Soyodk/VoteCord/releases/download/v0.4.0-nightly.20261120.18/votecord-0.4.0nightly.20261120.18-1-x86_64.pkg.tar.zst) · [SHA256 checksums](https://github.com/Soyodk/VoteCord/releases/download/v0.4.0-nightly.20261120.18/SHA256SUMS.txt) · [all release files](https://github.com/Soyodk/VoteCord/releases/tag/v0.4.0-nightly.20261120.18)
 
 ## What Votecord is
 
