@@ -187,11 +187,15 @@ impl Application {
     pub(super) fn open_profile(
         &mut self,
         room: String,
-        profile: Profile,
+        mut profile: Profile,
         large: bool,
     ) -> Vec<Effect> {
         let fetch = Network::of(&room) == Network::Discord && !self.state.preview;
         let user = profile.id.clone();
+        // This account's own card carries the links it chose, which Discord
+        // doesn't have; see [`crate::profile_links`].
+        profile.links =
+            crate::profile_links::for_profile(self.state.discord_user.as_deref(), &profile.id);
         self.state.profile = Some(ProfileView {
             profile,
             large,
@@ -250,6 +254,8 @@ fn fill_profile(view: &mut ProfileView, profile: &Profile) {
         presence: profile.presence.or(view.profile.presence),
         activity: profile.activity.clone().or(view.profile.activity.take()),
         activities: std::mem::take(&mut view.profile.activities),
+        // Discord sends none: they're this device's, on this account's card.
+        links: std::mem::take(&mut view.profile.links),
         ..profile.clone()
     };
 }

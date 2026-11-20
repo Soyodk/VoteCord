@@ -3,7 +3,7 @@ import { ScrollView } from "scrollview.slint";
 import { Theme, Label, Middle, Popup } from "theme.slint";
 import { ActionButton, Avatar, IconButton, MenuItem, TextField } from "controls.slint";
 import { Choices, Picker, UnsavedBar } from "settings.slint";
-import { ProfileData, ProfileHeading } from "people.slint";
+import { ProfileData, ProfileHeading, ProfileLinkRow } from "people.slint";
 
 // What an invite dialog shows: whom it invites where, and the link once
 // Discord made it.
@@ -643,6 +643,17 @@ export struct ProfileEditorPrompt {
     bio-left: int,
     /// The name or pronouns are longer than Discord takes.
     too-long: string,
+    /// The buttons under the bio: this account's own links, whether it may
+    /// change them, whether another fits, and the form that writes one.
+    links: [ProfileLinkRow],
+    links-enabled: bool,
+    links-room: bool,
+    link-form: bool,
+    /// The link the form changes; -1 while it's a new one.
+    link-index: int,
+    link-label: string,
+    link-url: string,
+    link-error: string,
     /// Saving would change something.
     changed: bool,
     /// The profile card as it would show.
@@ -680,6 +691,9 @@ export component ProfileEditorDialog inherits Rectangle {
     in-out property <string> pronouns;
     in-out property <string> bio;
     in-out property <string> colour;
+    /// The link being written: its label and its address.
+    in-out property <string> link-label;
+    in-out property <string> link-url;
     /// A text changed: 0 the name, 1 the pronouns, 2 the bio, 3 the banner
     /// colour.
     callback write(int, string);
@@ -687,6 +701,13 @@ export component ProfileEditorDialog inherits Rectangle {
     /// banner.
     callback pick(int);
     callback reset(int);
+    /// Write a link: -1 for a new one, or the one at an index.
+    callback edit-link(int);
+    /// Write the form's label, by 0, or its address.
+    callback write-link(int, string);
+    callback commit-link;
+    callback cancel-link;
+    callback remove-link(int);
     callback unlock-nitro;
     /// Undo every change, as the bar's Reset does.
     callback undo;
@@ -1055,6 +1076,99 @@ export component ProfileEditorDialog inherits Rectangle {
                                     }
                                     if root.editing != 3 && root.prompt.bio-left < 0: Text {
                                         text: "Too long by " + (-root.prompt.bio-left); color: Theme.danger; font-size: 12px;
+                                    }
+                                }
+                                // The buttons under the bio: this account's own
+                                // links, which Discord has no field for and
+                                // Votecord keeps on this device. See
+                                // profile_links.rs.
+                                if root.prompt.main: VerticalLayout {
+                                    spacing: 6px;
+                                    HorizontalLayout {
+                                        spacing: 6px; alignment: start;
+                                        Middle { ProfileHeading { text: "LINKS"; } }
+                                        Rectangle { horizontal-stretch: 1; }
+                                        if root.prompt.links-room && !root.prompt.link-form: Middle {
+                                            ActionButton {
+                                                small: true; ghost: true; text: "Add link";
+                                                enabled: root.ready && root.prompt.links-enabled;
+                                                clicked => { root.edit-link(-1); }
+                                            }
+                                        }
+                                    }
+                                    if root.prompt.links.length == 0 && !root.prompt.link-form: Text {
+                                        text: "Put a button under your bio: your site, a project, a server.";
+                                        color: Theme.muted; font-size: 13px; wrap: word-wrap;
+                                    }
+                                    for link[index] in root.prompt.links: Rectangle {
+                                        height: 42px; border-radius: 8px;
+                                        background: Theme.sunken; border-width: 1px; border-color: Theme.line;
+                                        HorizontalLayout {
+                                            padding-left: 12px; padding-right: 6px; spacing: 10px;
+                                            Middle {
+                                                Image { source: @image-url("icons/link.svg"); width: 16px; height: 16px; colorize: Theme.accent; }
+                                            }
+                                            VerticalLayout {
+                                                alignment: center; horizontal-stretch: 1; spacing: 1px;
+                                                Text { text: link.label; color: Theme.text; font-size: 14px; font-weight: 600; overflow: elide; }
+                                                Text { text: link.url; color: Theme.muted; font-size: 12px; overflow: elide; }
+                                            }
+                                            if root.prompt.links-enabled && !root.prompt.link-form: Middle {
+                                                IconButton {
+                                                    icon: @image-url("icons/pencil.svg"); label: "Edit " + link.label;
+                                                    size: 26px; glyph: 14px; tint: Theme.muted;
+                                                    clicked => { root.edit-link(index); }
+                                                }
+                                            }
+                                            if root.prompt.links-enabled && !root.prompt.link-form: Middle {
+                                                IconButton {
+                                                    icon: @image-url("icons/x.svg"); label: "Remove " + link.label;
+                                                    size: 26px; glyph: 14px; tint: Theme.muted;
+                                                    clicked => { root.remove-link(index); }
+                                                }
+                                            }
+                                        }
+                                    }
+                                    if root.prompt.link-form: Rectangle {
+                                        border-radius: 8px; background: Theme.sunken;
+                                        border-width: 1px; border-color: Theme.accent.with-alpha(0.6);
+                                        height: link-fields.preferred-height;
+                                        link-fields := VerticalLayout {
+                                            padding: 10px; spacing: 8px;
+                                            Text {
+                                                text: root.prompt.link-index < 0 ? "New link" : "Edit link";
+                                                color: Theme.text; font-size: 14px; font-weight: 600;
+                                            }
+                                            HorizontalLayout {
+                                                spacing: 8px;
+                                                TextField {
+                                                    width: 150px; min-height: 32px; text-size: 14px; pad: 8px;
+                                                    placeholder: "Label"; label: "Link label";
+                                                    text <=> root.link-label;
+                                                    edited(text) => { root.write-link(0, text); }
+                                                    accepted => { root.commit-link(); }
+                                                }
+                                                TextField {
+                                                    horizontal-stretch: 1; min-height: 32px; text-size: 14px; pad: 8px;
+                                                    placeholder: "example.com/page"; label: "Link address";
+                                                    text <=> root.link-url;
+                                                    edited(text) => { root.write-link(1, text); }
+                                                    accepted => { root.commit-link(); }
+                                                }
+                                            }
+                                            if root.prompt.link-error != "": Text {
+                                                text: root.prompt.link-error; color: Theme.danger; font-size: 13px; wrap: word-wrap;
+                                            }
+                                            HorizontalLayout {
+                                                spacing: 8px; alignment: end;
+                                                ActionButton { small: true; ghost: true; text: "Cancel"; clicked => { root.cancel-link(); } }
+                                                ActionButton {
+                                                    small: true; primary: true;
+                                                    text: root.prompt.link-index < 0 ? "Add link" : "Save link";
+                                                    clicked => { root.commit-link(); }
+                                                }
+                                            }
+                                        }
                                     }
                                 }
                                 if root.prompt.preview.created != "" || root.prompt.preview.joined != "": VerticalLayout {

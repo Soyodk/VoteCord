@@ -572,6 +572,8 @@ pub(super) fn chat_profile(
         presence: None,
         activity: None,
         activities: Default::default(),
+        // Discord has no field for them, so they're this device's alone.
+        links: Default::default(),
     }
 }
 

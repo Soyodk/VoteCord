@@ -631,6 +631,10 @@ pub struct Profile {
     /// The servers and friends this account shares with them.
     pub servers: Vec<ProfileServer>,
     pub friends: Vec<ProfileFriend>,
+    /// The buttons under the bio, on this account's own card: what it chose
+    /// to link to, which Discord has no field for and Votecord keeps on this
+    /// device; see [`crate::profile_links`]. Other people's cards have none.
+    pub links: Vec<crate::profile_links::ProfileLink>,
 }
 
 /// A server a profile's person shares with this account.

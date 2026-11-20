@@ -30,7 +30,7 @@ import { ServerRow, RoomRow, StatusDot, ServerRail, ServerHeader, RoomList } fro
 import { StagedFile, StagedTile, Composer, MentionRow, MentionList, EmojiSuggestions, CommandRow, CommandList, SlashHintRow, SlashHints, RequestBar, CommandBrowser } from "composer.slint";
 import { EmojiCell, EmojiRow, EmojiSection, EmojiCard, EmojiCardView, MessageRow, ReactionToggle, EmojiButton, EmojiPicker, MessageMenu, MessageGallery, MessageStickers, FileCard, MessageContent, EmbedView, BotTag, NoConversation, ConversationStart, HistoryEdge, UnreadBar, PresentBar, ImageViewer, VideoViewer, VideoPlayer, Polls } from "messages.slint";
 import { SettingsRow, SettingsScreen, AccountSettings, AppearanceSettings, ThemeCard, ThemeColour, VoiceSettings, MessageSettings, NotificationSettings, SoundSettings, AdvancedSettings, DiscordLinkSettings, DiscordSettings, NitroSettings, BlockedRow, GameActivitySettings, GameExecutable } from "settings.slint";
-import { MemberRow, ProfileData, ProfileServerRow, MemberPanel, ProfileCard, ServerCard, RoleCard } from "people.slint";
+import { MemberRow, ProfileData, ProfileLinkRow, ProfileServerRow, MemberPanel, ProfileCard, ServerCard, RoleCard } from "people.slint";
 import { RequestRow, FriendRow, FriendsScreen, HeaderTab, RequestsScreen, AddFriendDialog } from "friends.slint";
 import { ContactRow, PlaceRow, ReactionPill, ReactorRow, StatusDialog, NewDmDialog, ForwardDialog, QuickSwitcher, ReactionsDialog, StatusMenu, PersonPrompt, PersonDialog, LeavingDialog, PollAnswerDraft, PollDialog } from "dialogs.slint";
 import { InvitePrompt, InviteDialog, JoinPrompt, JoinDialog, EventPrompt, EventDialog, GiftPrompt, GiftDialog, OAuthPrompt, OAuthDialog, ChannelPrompt, ChannelDialog, ProfileEditorPrompt, ProfileEditorDialog } from "server.slint";
@@ -53,7 +53,7 @@ export { ServerRow, RoomRow, FolderServer } from "rail.slint";
 export { PictureStore, EmojiAnimations, Motion } from "controls.slint";
 export { StagedFile, MentionRow, CommandRow, SlashHintRow } from "composer.slint";
 export { EmojiCell, EmojiRow, EmojiSection, EmojiCard, ReactionChip, ImageCell, FileCell, EmbedField, EmbedFieldRow, EmbedCard, CardButtonStyle, CardButton, TextBlock, CardRowKind, CardRow, ComponentCard, MessageRow, VideoPlayer, PollAction, PollAnswerRow, PollCard, Polls } from "messages.slint";
-export { MemberRow, ProfileRole, ProfileRoleRow, ProfileServerRow, ProfileFriendRow, ProfileData, ActivityRow, ActivityClock } from "people.slint";
+export { MemberRow, ProfileRole, ProfileRoleRow, ProfileServerRow, ProfileFriendRow, ProfileLinkRow, ProfileData, ActivityRow, ActivityClock } from "people.slint";
 export { RequestRow, FriendRow } from "friends.slint";
 export { ContactRow, PlaceRow, ReactionPill, ReactorRow, PollAnswerDraft } from "dialogs.slint";
 export { FoundRow, PickRow } from "header.slint";
@@ -208,11 +208,22 @@ export component VotecordWindow inherits Window {
     in-out property <string> profile-editor-pronouns;
     in-out property <string> profile-editor-bio;
     in-out property <string> profile-editor-colour;
+    /// The link being written on the profile card: its label and address.
+    in-out property <string> profile-editor-link-label;
+    in-out property <string> profile-editor-link-url;
     /// Opens the editor of the main Discord profile, as Edit Profile does.
     callback edit-profile;
     callback write-profile(int, string);
     callback pick-profile-picture(int);
     callback reset-profile-picture(int);
+    /// Write a link on the profile card: -1 for a new one, or the one at an
+    /// index; write its label, by 0, or its address; add it; close it; or
+    /// take the link at an index off.
+    callback edit-profile-link(int);
+    callback write-profile-link(int, string);
+    callback commit-profile-link;
+    callback cancel-profile-link;
+    callback remove-profile-link(int);
     callback unlock-nitro;
     callback undo-profile;
     callback save-profile;
@@ -3943,9 +3954,15 @@ export component VotecordWindow inherits Window {
         prompt: root.profile-editor-prompt;
         name <=> root.profile-editor-name; pronouns <=> root.profile-editor-pronouns;
         bio <=> root.profile-editor-bio; colour <=> root.profile-editor-colour;
+        link-label <=> root.profile-editor-link-label; link-url <=> root.profile-editor-link-url;
         write(field, text) => { root.write-profile(field, text); }
         pick(kind) => { root.pick-profile-picture(kind); }
         reset(kind) => { root.reset-profile-picture(kind); }
+        edit-link(index) => { root.edit-profile-link(index); }
+        write-link(field, text) => { root.write-profile-link(field, text); }
+        commit-link => { root.commit-profile-link(); }
+        cancel-link => { root.cancel-profile-link(); }
+        remove-link(index) => { root.remove-profile-link(index); }
         unlock-nitro => { root.unlock-nitro(); }
         undo => { root.undo-profile(); }
         save => { root.save-profile(); }

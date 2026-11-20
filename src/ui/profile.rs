@@ -196,6 +196,7 @@ pub(super) fn changed_profile(shown: &ProfileData, mut data: ProfileData) -> Opt
     data.activities = same_list(&shown.activities, data.activities);
     data.role_rows = same_role_rows(&shown.role_rows, data.role_rows);
     data.role_rows_large = same_role_rows(&shown.role_rows_large, data.role_rows_large);
+    data.links = same_list(&shown.links, data.links);
     // The banner's animation goes with its still picture: while that one is
     // unchanged, the frames showing keep playing rather than starting over,
     // and none are compared, which would decode them.
@@ -213,11 +214,14 @@ pub(super) fn profile_data(
     view: &ProfileView,
 ) -> ProfileData {
     let profile = &view.profile;
-    let handle = [profile.handle.as_str(), profile.pronouns.as_str()]
-        .into_iter()
-        .filter(|part| !part.is_empty())
-        .collect::<Vec<_>>()
-        .join(" · ");
+    // The username and the pronouns, or whichever there is, on one line: no
+    // list to join, as the card is built again on every refresh.
+    let handle = match (profile.handle.is_empty(), profile.pronouns.is_empty()) {
+        (true, true) => String::new(),
+        (false, true) => profile.handle.clone(),
+        (true, false) => profile.pronouns.clone(),
+        (false, false) => format!("{} · {}", profile.handle, profile.pronouns),
+    };
     // The profile keeps the status's own line breaks. A line that only
     // names an activity goes, as its card says more.
     let (activity_emoji, activity) = profile
@@ -250,6 +254,16 @@ pub(super) fn profile_data(
         activities: activity_rows(&profile.activities),
         bio: markdown(&profile.bio),
         has_bio: !profile.bio.trim().is_empty(),
+        links: ModelRc::new(VecModel::from(
+            profile
+                .links
+                .iter()
+                .map(|link| ProfileLinkRow {
+                    label: link.label.as_str().into(),
+                    url: link.url.as_str().into(),
+                })
+                .collect::<Vec<_>>(),
+        )),
         role_rows: role_rows(&profile.roles, PROFILE_CARD_WIDTH),
         role_rows_large: role_rows(&profile.roles, PROFILE_LARGE_WIDTH),
         created: profile.created.clone().unwrap_or_default().into(),
@@ -308,10 +322,9 @@ pub(super) fn profile_data(
             friend_offer(state.relation(&profile.id))
         },
         // Discord's card names them as the profile does.
-        message_hint: if state
-            .person_choices(&profile.id)
-            .contains(&MenuChoice::Message)
-        {
+        // The menu's Message choice, without building the menu: a card asks
+        // this on every refresh, and the menu checks permissions and roles.
+        message_hint: if state.may_message(&profile.id) {
             format!("Message @{}", profile.name).into()
         } else {
             Default::default()

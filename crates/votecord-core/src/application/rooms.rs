@@ -236,6 +236,15 @@ impl AppState {
             .is_some_and(|(guild, _)| guild != discord::DM_GUILD)
     }
 
+    /// Whether a profile card offers to message someone: not this account,
+    /// and someone [`Self::can_message`] reaches. It's the menu's Message
+    /// choice without building the menu, which a card asks on every refresh.
+    pub fn may_message(&self, user: &str) -> bool {
+        self.discord_user.as_deref() != Some(user)
+            && self.account.as_deref() != Some(user)
+            && self.can_message(user)
+    }
+
     /// The listed one-to-one DM with someone.
     pub(super) fn dm_with(&self, user: &str) -> Option<&ChatRoom> {
         self.rooms
