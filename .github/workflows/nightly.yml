@@ -83,7 +83,10 @@ jobs:
             ~/.cache/cargo-xwin
             .local/windows/skia-static-production/build.json
             .local/windows/skia-static-production/prepared
-          key: windows-skia-${{ hashFiles('nix/flake.lock', 'nix/prepare-windows-skia.py', 'nix/prepare-skia-native.py', 'nix/skia-windows-builder/**') }}
+          # Bump this suffix when cargo-xwin changes its SDK layout. A stale
+          # cache can contain the CRT but not the Win11 SDK headers, making
+          # prepare-windows-skia.py fail before the actual build.
+          key: windows-skia-v2-${{ hashFiles('nix/flake.lock', 'nix/prepare-windows-skia.py', 'nix/prepare-skia-native.py', 'nix/skia-windows-builder/**') }}
       # The compiled dependencies. Before scripts/set-version, which changes
       # Cargo.lock, so the key changes only with the dependencies.
       - uses: Swatinem/rust-cache@v2
