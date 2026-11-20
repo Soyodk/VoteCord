@@ -19,6 +19,20 @@
   Slash commands that work · Nitro perks you turn on yourself
 </p>
 
+## Latest release
+
+<p>
+  <strong>Votecord 0.4.0-nightly.20261120.18</strong><br>
+  <strong>Date:</strong> 20 November 2026 · <strong>Status:</strong> Nightly / prerelease · <strong>Commit:</strong> <code>993df85</code>
+</p>
+
+This is the latest test build from `main`. It includes customizable profile
+buttons, profile-card optimizations and the Windows build fix. Nightly builds
+may contain rough edges; use the stable release when you want the most tested
+version.
+
+**Downloads:** [Windows installer](https://github.com/Soyodk/VoteCord/releases/download/v0.4.0-nightly.20261120.18/Votecord-0.4.0-nightly.20261120.18-windows-x64-setup.exe) · [Windows ZIP](https://github.com/Soyodk/VoteCord/releases/download/v0.4.0-nightly.20261120.18/Votecord-0.4.0-nightly.20261120.18-windows-x64.zip) · [Linux AppImage](https://github.com/Soyodk/VoteCord/releases/download/v0.4.0-nightly.20261120.18/Votecord-0.4.0-nightly.20261120.18-x86_64.AppImage) · [all files and checksums](https://github.com/Soyodk/VoteCord/releases/tag/v0.4.0-nightly.20261120.18)
+
 ## What Votecord is
 
 Votecord is a fork of [Yapfast](https://github.com/yapfast/yapfast), the
